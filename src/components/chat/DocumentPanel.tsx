@@ -15,11 +15,11 @@
 import { AnimatePresence, motion } from "framer-motion";
 import { useEffect, useRef, useState, type ChangeEvent } from "react";
 
-import { Icon } from "@/components/ui/Icon";
+import { FileTypeIcon, Icon } from "@/components/ui/Icon";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { api } from "@/lib/api";
 import type { DocumentPage, DocumentRecord } from "@/lib/types";
-import { ACCEPTED_EXTENSIONS, cn, fileLabel, formatBytes, truncate } from "@/lib/utils";
+import { ACCEPTED_EXTENSIONS, cn, formatBytes, truncate } from "@/lib/utils";
 
 export interface PanelFocus {
   documentId: string;
@@ -262,7 +262,9 @@ function DocumentView({ documents, focus, onFocus, onTab }: PanelProps) {
               onClick={() => onFocus({ documentId: document.id, page: 1 })}
               className={cn(
                 "shrink-0 rounded-full px-3 py-1.5 text-[12.5px] font-medium transition-colors",
-                document.id === current.id ? "bg-[rgb(var(--accent))] text-white" : "bg-white/70 hover:bg-white",
+                document.id === current.id
+                  ? "bg-white text-[rgb(var(--text))] shadow-sm ring-1 ring-black/10"
+                  : "bg-white/50 text-[rgb(var(--text))]/65 hover:bg-white/80",
               )}
             >
               {truncate(document.filename, 26)}
@@ -283,7 +285,7 @@ function DocumentView({ documents, focus, onFocus, onTab }: PanelProps) {
             aria-label="Previous page"
             className="grid h-8 w-8 place-items-center rounded-full disabled:opacity-30"
           >
-            <Icon name="arrowLeft" size={14} />
+            <Icon name="chevronLeft" size={16} />
           </button>
           <span className="min-w-[88px] text-center text-[12.5px] tabular-nums">
             Page {pageNumber} of {total}
@@ -295,7 +297,7 @@ function DocumentView({ documents, focus, onFocus, onTab }: PanelProps) {
             aria-label="Next page"
             className="grid h-8 w-8 place-items-center rounded-full disabled:opacity-30"
           >
-            <Icon name="arrowRight" size={14} />
+            <Icon name="chevronRight" size={16} />
           </button>
         </div>
         <button
@@ -305,7 +307,7 @@ function DocumentView({ documents, focus, onFocus, onTab }: PanelProps) {
           title="Open the original file"
           className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-white/70 shadow-sm hover:bg-white"
         >
-          <Icon name="arrowUpRight" size={14} />
+          <Icon name="externalLink" size={14} />
         </button>
       </div>
 
@@ -420,9 +422,7 @@ function SourcesView({
                   }}
                   className="flex min-w-0 flex-1 items-center gap-3 text-left disabled:cursor-default"
                 >
-                  <span className="grid h-10 min-w-[40px] place-items-center rounded-xl bg-[rgb(var(--accent))] px-1 text-[10px] font-bold text-white">
-                    {fileLabel(document.extension)}
-                  </span>
+                  <FileTypeIcon extension={document.extension} size="lg" />
                   <span className="min-w-0">
                     <span className="block truncate text-[13.5px] font-medium">{document.filename}</span>
                     <span className="block truncate text-[12px] text-muted">
@@ -441,14 +441,16 @@ function SourcesView({
                     aria-label={`Use ${document.filename} in answers`}
                     onClick={() => onToggleIncluded(document.id)}
                     className={cn(
-                      "relative h-6 w-10 shrink-0 rounded-full transition-colors",
-                      on ? "bg-[rgb(var(--accent))]" : "bg-black/15",
+                      "relative inline-flex h-6 w-10 shrink-0 items-center rounded-full p-0.5 transition-colors duration-200",
+                      "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-black/40",
+                      on ? "bg-[#3A3A40]" : "bg-black/[0.14]",
                     )}
                   >
                     <span
+                      aria-hidden
                       className={cn(
-                        "absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform",
-                        on ? "translate-x-[18px]" : "translate-x-0.5",
+                        "block h-5 w-5 rounded-full bg-white shadow-[0_1px_3px_rgba(0,0,0,0.25)] transition-transform duration-200 ease-out",
+                        on ? "translate-x-4" : "translate-x-0",
                       )}
                     />
                   </button>
@@ -458,7 +460,7 @@ function SourcesView({
               {processing && (
                 <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-black/5">
                   <div
-                    className="h-full rounded-full bg-[rgb(var(--accent))] transition-all duration-700"
+                    className="h-full rounded-full bg-[rgb(var(--text))]/55 transition-all duration-700"
                     style={{ width: document.status === "uploaded" ? "12%" : document.status === "extracting" ? "45%" : "80%" }}
                   />
                 </div>

@@ -44,7 +44,7 @@ function RunCard({ run }: { run: SandboxRun }) {
           ) : failed ? (
             <Icon name="alert" size={14} />
           ) : (
-            <Icon name="check" size={14} strokeWidth={2.2} />
+            <Icon name="calculator" size={15} />
           )}
         </span>
         <span className="min-w-0 flex-1">

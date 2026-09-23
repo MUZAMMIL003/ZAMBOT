@@ -26,9 +26,9 @@ import {
 } from "react";
 import { createPortal } from "react-dom";
 
-import { Icon, type IconName } from "@/components/ui/Icon";
+import { FileTypeIcon, Icon, type IconName } from "@/components/ui/Icon";
 import type { Source, SandboxRun } from "@/lib/types";
-import { cn, fileLabel } from "@/lib/utils";
+import { cn } from "@/lib/utils";
 import { SandboxBlock } from "./SandboxBlock";
 
 export interface DisplayMessage {
@@ -181,8 +181,8 @@ function TableBlock({ lines }: { lines: string[] }) {
         </table>
       </div>
       <div className="flex items-center justify-end gap-1 border-t border-black/5 px-2 py-1.5">
-        <ActionButton icon={copied ? "check" : "layers"} label={copied ? "Copied" : "Copy table"} onClick={() => void copy()} />
-        <ActionButton icon="upload" label="Download CSV" onClick={download} iconClassName="rotate-180" />
+        <ActionButton icon={copied ? "check" : "copy"} label={copied ? "Copied" : "Copy table"} onClick={() => void copy()} />
+        <ActionButton icon="download" label="Download CSV" onClick={download} />
       </div>
     </div>
   );
@@ -235,8 +235,8 @@ function CitationPill({
         className={cn(
           "mx-0.5 inline-flex h-[18px] min-w-[18px] -translate-y-[2px] items-center justify-center rounded-[6px] px-1 align-middle text-[10.5px] font-bold transition-colors",
           open
-            ? "bg-[rgb(var(--accent))] text-white"
-            : "bg-black/10 text-[rgb(var(--text))]/75 hover:bg-[rgb(var(--accent))] hover:text-white",
+            ? "bg-black/[0.18] text-[rgb(var(--text))]"
+            : "bg-black/[0.07] text-[rgb(var(--text))]/70 hover:bg-black/[0.14] hover:text-[rgb(var(--text))]",
         )}
       >
         {number}
@@ -341,9 +341,9 @@ function SourcePopover({
           <button
             type="button"
             onClick={() => onOpen(source)}
-            className="mt-3 flex h-9 w-full items-center justify-center gap-2 rounded-full bg-[rgb(var(--accent))] text-[13px] font-medium text-white"
+            className="mt-3 flex h-9 w-full items-center justify-center gap-2 rounded-full bg-black/[0.05] text-[13px] font-medium text-[rgb(var(--text))] transition-colors hover:bg-black/[0.09]"
           >
-            <Icon name="file" size={14} />
+            <Icon name="fileText" size={15} />
             Open {source.label.toLowerCase()} in document
           </button>
         </motion.div>
@@ -356,9 +356,7 @@ function SourcePopover({
 function SourceHeader({ source }: { source: Source }) {
   return (
     <div className="flex items-center gap-2.5">
-      <span className="grid h-8 min-w-[34px] place-items-center rounded-lg bg-black/5 px-1 text-[9.5px] font-bold">
-        {fileLabel(extensionOf(source.filename))}
-      </span>
+      <FileTypeIcon extension={extensionOf(source.filename)} />
       <span className="min-w-0">
         <span className="block truncate text-[13px] font-medium">{source.filename}</span>
         <span className="block text-[11.5px] text-muted">{source.label}</span>
@@ -471,9 +469,9 @@ function AnswerFooter({
     <div className="mt-2 flex flex-wrap items-center gap-x-1 gap-y-2">
       <VerifiedBadge verified={message.verified ?? null} note={message.verificationNote} />
       <div className="flex items-center">
-        <ActionButton icon={copied ? "check" : "layers"} label={copied ? "Copied" : "Copy"} onClick={() => void copy()} />
+        <ActionButton icon={copied ? "check" : "copy"} label={copied ? "Copied" : "Copy"} onClick={() => void copy()} />
         {onRegenerate && <ActionButton icon="refresh" label="Regenerate" onClick={onRegenerate} />}
-        {first && <ActionButton icon="file" label="Show in document" onClick={() => onOpenSource(first)} />}
+        {first && <ActionButton icon="fileText" label="Show in document" onClick={() => onOpenSource(first)} />}
       </div>
       {message.rewritten && (
         <span
@@ -523,7 +521,7 @@ function VerifiedBadge({ verified, note }: { verified: boolean | null; note?: st
         verified ? "bg-positive/20 text-emerald-700" : "bg-caution/20 text-amber-700",
       )}
     >
-      <Icon name={verified ? "check" : "alert"} size={11} strokeWidth={2.3} />
+      <Icon name={verified ? "verified" : "alert"} size={12} strokeWidth={2} />
       {verified ? "Verified" : "Unverified"}
     </span>
   );
@@ -544,7 +542,7 @@ function SourceCards({ sources, onOpen }: { sources: Source[]; onOpen: OpenSourc
           className="group flex flex-col gap-1.5 rounded-2xl border border-black/5 bg-white/70 p-3 text-left shadow-sm backdrop-blur-md transition-colors hover:bg-white"
         >
           <span className="flex w-full items-center gap-2">
-            <span className="grid h-5 min-w-[20px] place-items-center rounded-md bg-[rgb(var(--accent))] px-1 text-[10px] font-bold text-white">
+            <span className="grid h-5 min-w-[20px] place-items-center rounded-md bg-black/[0.07] px-1 text-[10.5px] font-semibold text-[rgb(var(--text))]/70">
               {source.citation ?? index + 1}
             </span>
             <span className="min-w-0 flex-1 truncate text-[12.5px] font-medium">{source.filename}</span>
@@ -564,7 +562,8 @@ function SourceCards({ sources, onOpen }: { sources: Source[]; onOpen: OpenSourc
 function ClosestPassage({ source, onOpen }: { source: Source; onOpen: OpenSource }) {
   return (
     <div className="mt-3 rounded-2xl border border-dashed border-black/15 bg-white/50 p-3.5">
-      <p className="text-[11.5px] font-medium uppercase tracking-wider text-muted">
+      <p className="flex items-center gap-1.5 text-[11.5px] font-medium uppercase tracking-wider text-muted">
+        <Icon name="findText" size={14} />
         Closest passage I found - not a direct answer
       </p>
       {source.snippet && (
@@ -575,7 +574,7 @@ function ClosestPassage({ source, onOpen }: { source: Source; onOpen: OpenSource
         onClick={() => onOpen(source)}
         className="mt-2.5 inline-flex items-center gap-1.5 text-[12.5px] font-medium underline-offset-2 hover:underline"
       >
-        <Icon name="file" size={13} />
+        <Icon name="fileText" size={14} />
         {source.filename} · {source.label}
       </button>
     </div>
@@ -595,10 +594,10 @@ function RelatedQuestions({ questions, onAsk }: { questions: string[]; onAsk: (q
             initial={{ opacity: 0, x: -6 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ delay: 0.1 + index * 0.05 }}
-            className="flex max-w-full items-center gap-2 rounded-full border border-white/60 bg-white/55 py-2 pl-3.5 pr-3 text-left text-[13.5px] shadow-sm backdrop-blur-md transition hover:bg-white"
+            className="flex max-w-full items-center gap-2 rounded-full border border-white/60 bg-white/55 py-2 pl-3 pr-4 text-left text-[13.5px] shadow-sm backdrop-blur-md transition hover:bg-white"
           >
+            <Icon name="cornerDownRight" size={14} className="shrink-0 text-muted" />
             <span className="truncate">{question}</span>
-            <Icon name="arrowUpRight" size={14} className="shrink-0 text-muted" />
           </motion.button>
         ))}
       </div>

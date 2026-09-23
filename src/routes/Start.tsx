@@ -14,11 +14,11 @@ import { useNavigate } from "react-router-dom";
 import { Composer, type ComposerHandle } from "@/components/chat/Composer";
 import { FileDropZone } from "@/components/chat/FileDropZone";
 import { AnimatedLogo } from "@/components/ui/AnimatedLogo";
-import { Icon } from "@/components/ui/Icon";
+import { FileTypeIcon, Icon } from "@/components/ui/Icon";
 import { MenuButton } from "@/components/ui/PageHeader";
 import { ApiError, IS_DEMO, api } from "@/lib/api";
 import { useChats } from "@/lib/chats-context";
-import { cn, fileLabel, relativeTime } from "@/lib/utils";
+import { cn, relativeTime } from "@/lib/utils";
 
 const EASE = [0.22, 1, 0.36, 1] as const;
 
@@ -139,9 +139,7 @@ export function Start() {
                     onClick={() => navigate(`/chats/${chat.id}`)}
                     className="flex items-center gap-2 rounded-full border border-white/60 bg-white/60 py-1.5 pl-1.5 pr-4 text-[13.5px] font-medium shadow-sm backdrop-blur-md transition hover:bg-white"
                   >
-                    <span className="grid h-7 min-w-[30px] place-items-center rounded-full bg-black/5 px-1 text-[9px] font-bold">
-                      {fileLabel(chat.documents[0]?.extension ?? "pdf")}
-                    </span>
+                    <FileTypeIcon extension={chat.documents[0]?.extension ?? "pdf"} size="sm" className="rounded-full" />
                     {chat.title}
                   </button>
                 ))}

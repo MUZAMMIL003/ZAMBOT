@@ -12,11 +12,11 @@
 import { AnimatePresence, motion } from "framer-motion";
 import { useEffect, useState } from "react";
 
-import { Icon } from "@/components/ui/Icon";
+import { FileTypeIcon, Icon } from "@/components/ui/Icon";
 import { Orb } from "@/components/ui/Orb";
 import { Skeleton } from "@/components/ui/Skeleton";
 import type { DocumentBrief, DocumentRecord, KeyFact } from "@/lib/types";
-import { cn, fileLabel, truncate } from "@/lib/utils";
+import { cn, truncate } from "@/lib/utils";
 
 const EASE = [0.22, 1, 0.36, 1] as const;
 const PROGRESS: Record<string, number> = { uploaded: 10, extracting: 45, analyzing: 80, ready: 100 };
@@ -85,9 +85,7 @@ export function BriefCard({
         <ul className="mt-4 space-y-3">
           {documents.map((document) => (
             <li key={document.id} className="flex items-center gap-3">
-              <span className="grid h-8 min-w-[34px] place-items-center rounded-lg bg-[rgb(var(--accent))] px-1 text-[9.5px] font-bold text-white">
-                {fileLabel(document.extension)}
-              </span>
+              <FileTypeIcon extension={document.extension} />
               <span className="min-w-0 flex-1">
                 <span className="flex items-baseline justify-between gap-3">
                   <span className="truncate text-[13px] font-medium">{document.filename}</span>
@@ -97,7 +95,7 @@ export function BriefCard({
                 </span>
                 <span className="mt-1.5 block h-1.5 overflow-hidden rounded-full bg-black/5">
                   <motion.span
-                    className="block h-full rounded-full bg-[rgb(var(--accent))]"
+                    className="block h-full rounded-full bg-[rgb(var(--text))]/55"
                     initial={false}
                     animate={{ width: `${PROGRESS[document.status] ?? 100}%` }}
                     transition={{ duration: 0.8, ease: EASE }}
@@ -124,8 +122,8 @@ export function BriefCard({
         aria-expanded={expanded}
         className="flex w-full items-center gap-3 px-4 py-3.5 text-left sm:px-5"
       >
-        <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-[rgb(var(--accent))] text-white">
-          <Icon name="sparkle" size={16} />
+        <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-white text-[rgb(var(--text))]/80 shadow-sm ring-1 ring-black/5">
+          <Icon name="book" size={17} />
         </span>
         <span className="min-w-0 flex-1">
           <span className="block text-[14.5px] font-semibold">Document brief</span>
@@ -208,7 +206,7 @@ export function BriefCard({
                     onClick={onOpenSources}
                     className="mt-4 inline-flex items-center gap-1.5 text-[12.5px] font-medium text-[rgb(var(--text))]/60 hover:text-[rgb(var(--text))]"
                   >
-                    <Icon name="layers" size={13} />
+                    <Icon name="files" size={14} />
                     Manage sources
                   </button>
                 </>

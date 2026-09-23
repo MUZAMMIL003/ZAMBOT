@@ -52,7 +52,7 @@ Windows can resolve `localhost` to `::1`.
 ## 3. Stack
 
 Vite 6 · React 18 · TypeScript (strict) · react-router-dom 6 · Tailwind 3.4 ·
-framer-motion 11 · puppeteer-core (screenshots only). Path alias: `@/` → `src/`.
+framer-motion 11 · lucide-react (icons) · puppeteer-core (screenshots only). Path alias: `@/` → `src/`.
 The project moved from Next.js because Next's `.next/` folder broke inside
 OneDrive (`EINVAL readlink`).
 
@@ -68,7 +68,7 @@ OneDrive (`EINVAL readlink`).
 ```
 
 - **Sidebar** (`components/chat/Sidebar.tsx`) is the only navigation. It holds
-  the logo, a black *New chat* pill, **search** (matches chat titles *and*
+  the logo, a glass *New chat* button, **search** (matches chat titles *and*
   document names), every chat (title, file count, relative time, two-tap
   delete), then *Your files* and *Settings*. Below lg every page header starts
   with the ☰ `MenuButton`. There is no tab bar.
@@ -123,7 +123,7 @@ Conversation
 **Composer** (`components/chat/Composer.tsx`, `forwardRef` with the handle
 `addFiles` / `focus`):
 
-- Staged file chips show an extension badge, name, size and ×.
+- Staged file chips show a file-type icon, name, size and ×.
 - Unsupported types are skipped with a notice. The limit is 10 files.
 - Paste works, and drag-and-drop works through `FileDropZone`.
 - Mic dictation uses the Web Speech API; the mic is hidden where the browser
@@ -152,18 +152,42 @@ Conversation
 The font is Helvetica Neue. `.mesh-bg` is the pastel ground: lavender
 `#D4CDE6`, blush `#F1E5E7`, mint `#CDE6E2` and blue `#E3E9F3` on `#E6E1EE`.
 
-**Recipes:**
+**Recipes** (no solid-black blocks and no dark glows; the owner found them too flashy):
 
 | Element | Style |
 |---|---|
 | Glass cards | `bg-white/40–60` + `backdrop-blur` + `border-white/50–60` + `rounded-[24px]` |
-| Header pill | `rounded-[20px] bg-white/40 backdrop-blur-xl` |
-| Header buttons | `h-9 rounded-full bg-white/70`; black when active |
-| Primary actions | black pill with `shadow-volt` (New chat, send, popover CTA) |
+| New chat | a glass row: `rounded-xl border-black/[0.06] bg-white/75`, pen-square icon, left-aligned |
+| Send | 40px circle; active is charcoal `#2B2B30` with an up arrow, disabled is `bg-black/[0.07]` with a faint arrow |
+| Active / selected | white + `ring-1 ring-black/10–15` (Sources button, document switcher, paperclip hint) |
+| Switch | 40×24 track (`#3A3A40` on / `black/14` off), 20px knob, `translate-x-4`; the track is `inline-flex p-0.5` so the knob can never escape it |
+| Citation pills and number badges | `bg-black/[0.07]` grey, darker grey on hover or open |
+| Pop-up button | `bg-black/[0.05]` soft pill |
+| Progress bars | `text/55` charcoal |
 | Highlight | `#FFF1A8` with an inset `#E8C547` edge; pop-up quotes use `#FFF8DC` |
 | Menus and pop-ups | solid white `rounded-2xl shadow-lifted` (a blur nested inside a blur fails in Chrome) |
-| Orb | `.orb`, a pastel conic ring with a milky core; appears on the empty chat and while reading |
-| Aurora | `.aurora-*`, pastel blobs behind Landing |
+| Orb / Aurora | pastel, for the empty chat, reading state and Landing |
+
+**Icons:** **Lucide** (`lucide-react`, ISC licence) through `components/ui/Icon.tsx`. Choose them by what the control does:
+
+| Control | Icon |
+|---|---|
+| New chat | `newChat` (SquarePen) |
+| Menu | `menu` |
+| Send | `arrowUp` |
+| Attach | `paperclip`, not rotated |
+| Copy / Download | `copy` / `download` |
+| Regenerate | `refresh` (RotateCcw) |
+| Sources | `files` |
+| Brief | `book` |
+| Calculation | `calculator` |
+| Closest passage | `findText` |
+| Verified | `verified` (ShieldCheck) |
+| Related | `cornerDownRight` |
+| Open original | `externalLink` |
+| Account | `user` |
+
+Don't use sparkles. `FileTypeIcon` shows file types as a document glyph on a tinted tile: PDF red, Word blue, Excel/CSV green, PowerPoint orange, JSON/HTML violet. It replaces the old black "PDF" text badges.
 
 Motion is framer-motion: fade and rise on enter, springs for the drawer and
 sheet, and a `prefers-reduced-motion` guard.

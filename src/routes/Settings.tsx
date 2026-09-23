@@ -85,7 +85,7 @@ export function Settings() {
               {/* Information only - there is nothing to edit yet. */}
               <div className="row-item pointer-events-none">
                 <span aria-hidden className="icon-orb">
-                  <Icon name="sparkle" size={18} />
+                  <Icon name="user" size={18} />
                 </span>
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-[15px] font-medium">

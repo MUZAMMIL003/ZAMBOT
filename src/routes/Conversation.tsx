@@ -517,10 +517,10 @@ export function Conversation() {
                 className={cn(
                   "flex h-9 items-center justify-center gap-2 rounded-full text-[13px] font-medium shadow-sm transition",
                   "w-9 sm:w-auto sm:px-3.5",
-                  panelOpen ? "bg-[rgb(var(--accent))] text-white" : "bg-white/70 hover:bg-white",
+                  panelOpen ? "bg-white ring-1 ring-black/15" : "bg-white/70 hover:bg-white",
                 )}
               >
-                <Icon name="layers" size={14} />
+                <Icon name="files" size={15} />
                 <span className="hidden sm:inline">Sources</span>
               </button>
               <ShareButton title={chat?.title ?? "Zambot chat"} />
@@ -652,7 +652,7 @@ function ShareButton({ title }: { title: string }) {
       aria-label={copied ? "Link copied" : "Share this chat"}
       className={cn(HEADER_BUTTON, "w-9 md:w-auto md:px-3.5")}
     >
-      <Icon name={copied ? "check" : "share"} size={14} />
+      <Icon name={copied ? "check" : "share"} size={15} />
       <span className="hidden md:inline">{copied ? "Copied" : "Share"}</span>
     </button>
   );
@@ -711,7 +711,7 @@ function MoreMenu({
         aria-expanded={open}
         className={cn(HEADER_BUTTON, "w-9")}
       >
-        <Icon name="moreHorizontal" size={14} />
+        <Icon name="moreHorizontal" size={16} />
       </button>
 
       <AnimatePresence>

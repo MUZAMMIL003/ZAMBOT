@@ -123,9 +123,9 @@ function SidebarContent({
       <div className="space-y-3 px-4">
         <Link
           to="/chats"
-          className="flex h-11 items-center justify-center gap-2 rounded-full bg-[rgb(var(--accent))] text-[14.5px] font-medium text-white shadow-volt transition-transform active:scale-[0.98]"
+          className="flex h-11 items-center gap-2.5 rounded-xl border border-black/[0.06] bg-white/75 px-3.5 text-[14.5px] font-medium text-[rgb(var(--text))] shadow-[0_1px_2px_rgba(0,0,0,0.04)] transition hover:bg-white active:scale-[0.99]"
         >
-          <Icon name="plus" size={17} strokeWidth={2.2} />
+          <Icon name="newChat" size={17} />
           New chat
         </Link>
 

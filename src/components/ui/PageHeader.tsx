@@ -20,7 +20,7 @@ export function MenuButton({ className }: { className?: string }) {
         className,
       )}
     >
-      <Icon name="lines" size={17} />
+      <Icon name="menu" size={18} />
     </button>
   );
 }

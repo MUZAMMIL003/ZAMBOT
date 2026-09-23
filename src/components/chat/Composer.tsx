@@ -19,8 +19,8 @@ import {
   type KeyboardEvent,
 } from "react";
 
-import { Icon } from "@/components/ui/Icon";
-import { ACCEPTED_EXTENSIONS, cn, fileLabel, formatBytes, truncate } from "@/lib/utils";
+import { FileTypeIcon, Icon } from "@/components/ui/Icon";
+import { ACCEPTED_EXTENSIONS, cn, formatBytes, truncate } from "@/lib/utils";
 
 const MAX_HEIGHT = 160;
 const MAX_FILES = 10;
@@ -244,9 +244,7 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Compo
                   animate={{ opacity: 1, scale: 1 }}
                   className="flex max-w-full items-center gap-2 rounded-2xl border border-black/5 bg-white/90 py-1.5 pl-1.5 pr-1 shadow-sm"
                 >
-                  <span className="grid h-8 min-w-[34px] place-items-center rounded-lg bg-[rgb(var(--accent))] px-1 text-[9.5px] font-bold tracking-wide text-white">
-                    {fileLabel(extensionOf(file.name))}
-                  </span>
+                  <FileTypeIcon extension={extensionOf(file.name)} />
                   <span className="min-w-0">
                     <span className="block max-w-[180px] truncate text-[12.5px] font-medium">
                       {truncate(file.name, 32)}
@@ -277,17 +275,17 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Compo
                 className={cn(
                   "relative grid h-10 w-10 shrink-0 place-items-center rounded-full transition-colors disabled:pointer-events-none disabled:opacity-40",
                   highlightAttach && !files.length
-                    ? "bg-[rgb(var(--accent))] text-white shadow-volt"
+                    ? "bg-white text-[rgb(var(--text))] shadow-sm ring-1 ring-black/10"
                     : "text-muted hover:bg-[rgb(var(--row))] hover:text-[rgb(var(--text))]",
                 )}
               >
                 {highlightAttach && !files.length && (
                   <span
                     aria-hidden
-                    className="absolute inset-0 animate-listen-ring rounded-full border border-black/40"
+                    className="absolute inset-0 animate-listen-ring rounded-full border border-black/20"
                   />
                 )}
-                <Icon name="paperclip" size={18} className="-rotate-45" />
+                <Icon name="paperclip" size={18} />
               </button>
               {canDictate && (
                 <button
@@ -370,11 +368,13 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Compo
                 transition={{ type: "spring", stiffness: 430, damping: 24 }}
                 aria-label="Send"
                 className={cn(
-                  "mb-0.5 mr-0.5 grid h-[46px] w-[46px] shrink-0 place-items-center rounded-full bg-[rgb(var(--accent))] text-white transition-all duration-200",
-                  canSend ? "shadow-volt" : "opacity-40",
+                  "mb-1 mr-1 grid h-10 w-10 shrink-0 place-items-center rounded-full transition-colors duration-200",
+                  canSend
+                    ? "bg-[#2B2B30] text-white hover:bg-[#1F1F23]"
+                    : "bg-black/[0.07] text-[rgb(var(--text))]/35",
                 )}
               >
-                <Icon name="send" size={18} strokeWidth={2.2} className="-ml-0.5" />
+                <Icon name="arrowUp" size={19} strokeWidth={2.1} />
               </motion.button>
             )}
           </div>

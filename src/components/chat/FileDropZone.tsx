@@ -65,7 +65,7 @@ export function FileDropZone({
             className="pointer-events-none absolute inset-3 z-40 grid place-items-center rounded-[28px] border-2 border-dashed border-black/25 bg-white/70 backdrop-blur-md"
           >
             <div className="flex flex-col items-center gap-3 text-center">
-              <span className="grid h-14 w-14 place-items-center rounded-full bg-[rgb(var(--accent))] text-white shadow-volt">
+              <span className="grid h-14 w-14 place-items-center rounded-full bg-white text-[rgb(var(--text))] shadow-sm ring-1 ring-black/5">
                 <Icon name="upload" size={24} />
               </span>
               <p className="text-[16px] font-semibold">{label}</p>

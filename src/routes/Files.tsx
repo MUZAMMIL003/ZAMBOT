@@ -8,14 +8,14 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
-import { Icon } from "@/components/ui/Icon";
+import { FileTypeIcon, Icon } from "@/components/ui/Icon";
 import { ListCard, ListRow, SectionLabel } from "@/components/ui/List";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { SkeletonRows } from "@/components/ui/Skeleton";
 import { api } from "@/lib/api";
 import { useChats } from "@/lib/chats-context";
 import type { DocumentRecord } from "@/lib/types";
-import { fileLabel, formatBytes, relativeTime } from "@/lib/utils";
+import { formatBytes, relativeTime } from "@/lib/utils";
 
 interface Row extends DocumentRecord {
   chatTitle: string;
@@ -112,7 +112,7 @@ export function Files() {
                       state: row.status === "ready" ? { openDocument: row.id } : undefined,
                     })
                   }
-                  leading={<FileBadge extension={row.extension} />}
+                  leading={<FileTypeIcon extension={row.extension} size="lg" />}
                 />
               ))}
             </ListCard>
@@ -129,14 +129,3 @@ export function Files() {
   );
 }
 
-/** Extension badge, used in place of the circular icon on file rows. */
-function FileBadge({ extension }: { extension: string }) {
-  return (
-    <span
-      aria-hidden
-      className="grid h-10 w-10 shrink-0 place-items-center rounded-pill bg-[rgb(var(--row))] font-mono text-[9.5px] font-bold text-muted"
-    >
-      {fileLabel(extension)}
-    </span>
-  );
-}
