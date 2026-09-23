@@ -1,0 +1,270 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/*
+  Semantic tokens. Enforcing single light theme for ChatEase.
+*/
+:root {
+  --bg: 246 247 250; /* #F6F7FA */
+  --bg-deep: 236 238 243;
+  --surface: 255 255 255;
+  --row: 242 244 247;
+  --border: 0 0 0 / 0.06;
+  --border-strong: 0 0 0 / 0.12;
+  --text: 0 0 0;
+  --text-muted: 99 106 118;
+  --accent: 0 0 0; /* Pure black for a premium look */
+  --accent-bright: 64 64 64; /* Dark gray */
+  --accent-ink: 255 255 255;
+  --scrim: 16 17 20 / 0.4;
+}
+
+@layer base {
+  * {
+    border-color: rgb(var(--border));
+  }
+
+  html {
+    color-scheme: light;
+    -webkit-tap-highlight-color: transparent;
+    scroll-behavior: smooth;
+  }
+
+  body {
+    margin: 0;
+    background-color: rgb(var(--bg));
+    color: rgb(var(--text));
+    font-family:
+      "Helvetica Neue", Helvetica, Arial, system-ui, -apple-system, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    font-size: 16px;
+    line-height: 1.55;
+    overscroll-behavior-y: none;
+  }
+
+  ::selection {
+    background: rgb(var(--accent) / 0.35);
+  }
+
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: rgb(var(--border-strong));
+    border-radius: 999px;
+    border: 2px solid transparent;
+    background-clip: content-box;
+  }
+
+  :focus-visible {
+    outline: 2px solid rgb(var(--accent-bright));
+    outline-offset: 2px;
+    border-radius: 10px;
+  }
+
+  button,
+  a,
+  [role="button"] {
+    touch-action: manipulation;
+  }
+}
+
+@layer components {
+  /* Soft mesh gradient background for the entire app */
+  .mesh-bg {
+    background-color: #E6E1EE; /* Fallback base color */
+    background-image: 
+      radial-gradient(at 0% 0%, #D4CDE6 0px, transparent 50%),
+      radial-gradient(at 100% 0%, #F1E5E7 0px, transparent 50%),
+      radial-gradient(at 100% 100%, #CDE6E2 0px, transparent 50%),
+      radial-gradient(at 0% 100%, #E3E9F3 0px, transparent 50%);
+    position: relative;
+    overflow: hidden;
+  }
+  .mesh-bg::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    /* Soft noise or just an extra layer of gradient */
+    background: radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0.4) 0%, transparent 60%);
+    z-index: 0;
+    pointer-events: none;
+  }
+
+  /* ───────────────────────────────────────────────────────────── surfaces */
+  .card {
+    background: rgb(var(--surface));
+    border: 1px solid rgb(var(--border));
+    border-radius: 20px;
+  }
+
+  .row-item {
+    display: flex;
+    align-items: center;
+    gap: 0.875rem;
+    min-height: 52px;
+    padding: 0.5rem 0.875rem;
+    border-radius: 12px;
+    transition: background-color 0.2s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  .row-item:hover {
+    background: rgb(var(--border));
+  }
+
+  .icon-orb {
+    display: grid;
+    place-items: center;
+    width: 36px;
+    height: 36px;
+    flex-shrink: 0;
+    border-radius: 999px;
+    background: rgb(var(--row));
+    color: rgb(var(--text));
+  }
+
+  .ctrl {
+    display: grid;
+    place-items: center;
+    flex-shrink: 0;
+    border-radius: 999px;
+    background: rgb(var(--surface));
+    color: rgb(var(--text));
+    transition:
+      background-color 0.2s ease,
+      color 0.2s ease;
+  }
+  .ctrl:hover {
+    background: rgb(var(--row));
+  }
+
+  .glass {
+    background: rgb(var(--surface) / 0.85);
+    backdrop-filter: blur(22px) saturate(140%);
+    -webkit-backdrop-filter: blur(22px) saturate(140%);
+  }
+
+  .text-muted {
+    color: rgb(var(--text-muted));
+  }
+
+  .section-label {
+    font-size: 14px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    color: rgb(var(--text));
+  }
+
+  /* ───────────────────────────────────────────────────────────── orb */
+  /* A pastel glass sphere: a slowly turning colour ring under a milky core,
+     drawn in the same lavender / blush / mint as the mesh background. */
+  .orb {
+    position: relative;
+    isolation: isolate;
+    border-radius: 999px;
+    background:
+      radial-gradient(circle at 32% 26%, rgba(255, 255, 255, 0.95), rgba(255, 255, 255, 0.4) 38%, transparent 68%),
+      conic-gradient(from 210deg, #c9c1e8, #f3d6df, #bfe3dc, #d3dff5, #c9c1e8);
+    box-shadow:
+      inset 0 0 28px rgba(255, 255, 255, 0.75),
+      inset 0 -10px 24px rgba(120, 104, 176, 0.18),
+      0 22px 50px rgba(120, 104, 176, 0.22);
+  }
+  .orb::before {
+    content: "";
+    position: absolute;
+    inset: -6%;
+    z-index: -1;
+    border-radius: inherit;
+    background: conic-gradient(from 0deg, #b8aee6, #f2c9d6, #a9dccf, #c6d6f3, #b8aee6);
+    filter: blur(14px);
+    opacity: 0.75;
+    animation: orb-spin 26s linear infinite;
+  }
+  .orb::after {
+    content: "";
+    position: absolute;
+    inset: 16%;
+    border-radius: inherit;
+    background: radial-gradient(circle at 38% 32%, rgba(255, 255, 255, 0.9), rgba(255, 255, 255, 0.15) 70%);
+  }
+
+  /* ───────────────────────────────────────────────────────────── aurora */
+  .aurora-wrap {
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+    pointer-events: none;
+  }
+  .aurora-blob {
+    position: absolute;
+    border-radius: 999px;
+    filter: blur(60px);
+    will-change: transform, opacity;
+  }
+
+  /* ───────────────────────────────────────────────────────────── feedback */
+  .skeleton {
+    position: relative;
+    overflow: hidden;
+    background: rgb(var(--border));
+    border-radius: 10px;
+  }
+  .skeleton::after,
+  .processing-card::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    transform: translateX(-100%);
+    background: linear-gradient(
+      90deg,
+      transparent,
+      rgb(var(--surface) / 0.6),
+      transparent
+    );
+    animation: shimmer 1.6s infinite;
+  }
+
+  /* Shimmer card for a file that is still being read (FileStatus). */
+  .processing-card {
+    position: relative;
+    overflow: hidden;
+  }
+
+  .safe-b {
+    padding-bottom: max(env(safe-area-inset-bottom), 0.5rem);
+  }
+  .safe-t {
+    padding-top: max(env(safe-area-inset-top), 0px);
+  }
+
+  .no-scrollbar {
+    scrollbar-width: none;
+  }
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+@keyframes shimmer {
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
