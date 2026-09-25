@@ -20,7 +20,7 @@ import {
 } from "react";
 
 import { FileTypeIcon, Icon } from "@/components/ui/Icon";
-import { ACCEPTED_EXTENSIONS, cn, formatBytes, truncate } from "@/lib/utils";
+import { ACCEPTED_EXTENSIONS, ACCEPTED_LABEL, cn, formatBytes, truncate } from "@/lib/utils";
 
 const MAX_HEIGHT = 160;
 const MAX_FILES = 10;
@@ -125,7 +125,7 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Compo
       });
       if (rejected) {
         setNotice(
-          `${rejected} file${rejected === 1 ? "" : "s"} skipped - Zambot reads PDF, Word, Excel, PowerPoint, CSV, text and HTML.`,
+          `${rejected} file${rejected === 1 ? "" : "s"} skipped - Zambot reads ${ACCEPTED_LABEL}.`,
         );
       }
       textareaRef.current?.focus();

@@ -4,13 +4,16 @@
  * The base URL comes from VITE_API_URL so the same build points at
  * localhost in development and at the Render service in production.
  *
+ * The backend is single-user: there are no accounts, only one secret sent as
+ * the X-Access-Key header on every request (VITE_ACCESS_KEY). The "session"
+ * the UI keeps is local; logging in just checks the key is accepted.
+ *
  * Render's free tier sleeps after 15 minutes: the first request after a nap can
  * take ~30s to wake the instance. `wakeBackend()` fires a cheap /health call so
  * the UI can show "waking up" instead of appearing frozen.
  */
 import { IS_DEMO, demoApi, demoStreamAnswer } from "./demo";
 import type {
-  AnswerResponse,
   AskOptions,
   AuthToken,
   Chat,
@@ -19,7 +22,6 @@ import type {
   DocumentBrief,
   DocumentPage,
   DocumentRecord,
-  MemorySnapshot,
   StreamEvent,
   UploadResult,
   User,
@@ -30,6 +32,17 @@ export const API_URL = (
 ).replace(/\/$/, "");
 
 const TOKEN_KEY = "zambot.token";
+const ACCESS_KEY = (import.meta.env.VITE_ACCESS_KEY || "").trim();
+const REJECTED_KEY =
+  "The server rejected the access key. Set VITE_ACCESS_KEY in frontend/.env.local to the backend's APP_ACCESS_KEY.";
+
+const LOCAL_USER: User = {
+  id: "owner",
+  email: "",
+  display_name: "You",
+  auth_provider: "access-key",
+  created_at: new Date(0).toISOString(),
+};
 
 export class ApiError extends Error {
   constructor(
@@ -67,9 +80,8 @@ export function setToken(token: string | null) {
   }
 }
 
-function authHeaders(extra: HeadersInit = {}): HeadersInit {
-  const token = getToken();
-  return token ? { ...extra, Authorization: `Bearer ${token}` } : extra;
+function authHeaders(extra: Record<string, string> = {}): Record<string, string> {
+  return ACCESS_KEY ? { ...extra, "X-Access-Key": ACCESS_KEY } : extra;
 }
 
 // ------------------------------------------------------------- transport
@@ -100,7 +112,7 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
         ...(init.body instanceof FormData
           ? {}
           : { "Content-Type": "application/json" }),
-        ...(init.headers || {}),
+        ...((init.headers as Record<string, string>) || {}),
       }),
     });
   } catch {
@@ -112,7 +124,7 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
 
   if (response.status === 401) {
     setToken(null);
-    throw new ApiError("Your session expired. Please sign in again.", 401);
+    throw new ApiError(REJECTED_KEY, 401);
   }
   if (!response.ok) await parseError(response);
   if (response.status === 204) return undefined as T;
@@ -120,24 +132,17 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
 }
 
 // ------------------------------------------------------------------ auth
+async function openSession(): Promise<AuthToken> {
+  await request<Chat[]>("/chats");
+  return { access_token: "access-key", token_type: "access-key", expires_in: 0, user: LOCAL_USER };
+}
+
 const realApi = {
-  signup: (email: string, password: string, displayName?: string) =>
-    request<AuthToken>("/auth/signup", {
-      method: "POST",
-      body: JSON.stringify({
-        email,
-        password,
-        display_name: displayName || null,
-      }),
-    }),
+  signup: (_email: string, _password: string, _displayName?: string) => openSession(),
 
-  login: (email: string, password: string) =>
-    request<AuthToken>("/auth/login", {
-      method: "POST",
-      body: JSON.stringify({ email, password }),
-    }),
+  login: (_email: string, _password: string) => openSession(),
 
-  me: () => request<User>("/auth/me"),
+  me: async (): Promise<User> => (await openSession()).user,
 
   // ----------------------------------------------------------------- chats
   listChats: () => request<Chat[]>("/chats"),
@@ -201,25 +206,15 @@ const realApi = {
     ),
 
   // ------------------------------------------------------------------ chat
-  ask: (chatId: string, message: string) =>
-    request<AnswerResponse>(`/chat/${chatId}/message`, {
-      method: "POST",
-      body: JSON.stringify({ message, verify: true }),
-    }),
-
   suggestions: (chatId: string) =>
     request<string[]>(`/chat/${chatId}/suggestions`),
 
-  // Not on the backend yet: summary + key facts, generated once per document
-  // at ingestion time and cached (one free-tier LLM call per upload).
+  // Summary, key facts and starter questions, generated once documents are ready.
   brief: (chatId: string) => request<DocumentBrief>(`/chat/${chatId}/brief`),
 
-  // Not on the backend yet: the stored chunks for one page, so the viewer can
-  // show and highlight the cited passage without shipping the whole file.
+  // The extracted blocks of one page (or sheet), for the viewer's highlight.
   documentPage: (documentId: string, page: number) =>
     request<DocumentPage>(`/documents/${documentId}/pages/${page}`),
-
-  memory: (chatId: string) => request<MemorySnapshot>(`/memory/${chatId}`),
 
   health: () => request<{ status: string }>("/health"),
 };
@@ -251,7 +246,7 @@ async function* realStreamAnswer(
 
   if (response.status === 401) {
     setToken(null);
-    throw new ApiError("Your session expired. Please sign in again.", 401);
+    throw new ApiError(REJECTED_KEY, 401);
   }
   if (!response.ok) await parseError(response);
   if (!response.body) throw new ApiError("The server sent no response body", 0);

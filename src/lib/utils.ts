@@ -1,6 +1,8 @@
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
 
+import { IS_DEMO } from "./demo";
+
 /** Tailwind-aware class joiner. */
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -33,10 +35,14 @@ export function relativeTime(iso: string | null): string {
   });
 }
 
-/** What the upload pickers accept - mirrors the backend's extractors. */
-export const ACCEPTED_EXTENSIONS = [
-  "pdf", "docx", "txt", "md", "csv", "tsv", "xlsx", "xls", "pptx", "json", "html", "htm",
-];
+/** What the upload pickers accept: the real backend reads PDF, Word and Excel. */
+export const ACCEPTED_EXTENSIONS = IS_DEMO
+  ? ["pdf", "docx", "txt", "md", "csv", "tsv", "xlsx", "xls", "pptx", "json", "html", "htm"]
+  : ["pdf", "docx", "xlsx"];
+
+export const ACCEPTED_LABEL = IS_DEMO
+  ? "PDF, Word, Excel, PowerPoint, CSV, text and HTML"
+  : "PDF, Word (.docx) and Excel (.xlsx)";
 
 const FILE_ICONS: Record<string, string> = {
   pdf: "PDF",

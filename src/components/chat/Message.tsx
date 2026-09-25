@@ -28,6 +28,7 @@ import { createPortal } from "react-dom";
 
 import { FileTypeIcon, Icon, type IconName } from "@/components/ui/Icon";
 import type { Source, SandboxRun } from "@/lib/types";
+import { cellText, parseInline, parseMarkdown, toPlainText, type InlineToken } from "@/lib/markdown";
 import { cn } from "@/lib/utils";
 import { SandboxBlock } from "./SandboxBlock";
 
@@ -50,9 +51,83 @@ export interface DisplayMessage {
 type OpenSource = (source: Source) => void;
 
 const extensionOf = (name: string) => name.split(".").pop()?.toLowerCase() ?? "";
-const plainText = (text: string) => text.replace(/\s?\[\d+\]/g, "");
+const plainText = (text: string) => toPlainText(text);
 
 // ------------------------------------------------------------------ text
+function Inline({
+  tokens,
+  sources,
+  onOpenSource,
+}: {
+  tokens: InlineToken[];
+  sources: Source[];
+  onOpenSource: OpenSource;
+}) {
+  return (
+    <>
+      {tokens.map((token, index) => {
+        switch (token.kind) {
+          case "citation":
+            return (
+              <CitationPill
+                key={index}
+                number={token.number}
+                source={sources.find((s) => s.citation === token.number)}
+                onOpen={onOpenSource}
+              />
+            );
+          case "strong":
+            return (
+              <strong key={index} className="font-semibold">
+                <Inline tokens={token.children} sources={sources} onOpenSource={onOpenSource} />
+              </strong>
+            );
+          case "em":
+            return (
+              <em key={index}>
+                <Inline tokens={token.children} sources={sources} onOpenSource={onOpenSource} />
+              </em>
+            );
+          case "strike":
+            return (
+              <s key={index} className="opacity-70">
+                <Inline tokens={token.children} sources={sources} onOpenSource={onOpenSource} />
+              </s>
+            );
+          case "code":
+            return (
+              <code key={index} className="rounded bg-black/[0.06] px-1 py-0.5 font-mono text-[13px]">
+                {token.text}
+              </code>
+            );
+          default:
+            return (
+              <Fragment key={index}>
+                {token.text.split("\n").map((line, i, all) => (
+                  <Fragment key={i}>
+                    {line}
+                    {i < all.length - 1 && <br />}
+                  </Fragment>
+                ))}
+              </Fragment>
+            );
+        }
+      })}
+    </>
+  );
+}
+
+function InlineText({ text, sources, onOpenSource }: { text: string; sources: Source[]; onOpenSource: OpenSource }) {
+  const tokens = useMemo(() => parseInline(text), [text]);
+  return <Inline tokens={tokens} sources={sources} onOpenSource={onOpenSource} />;
+}
+
+const HEADING_STYLES: Record<number, string> = {
+  1: "text-[18px] font-semibold tracking-tight",
+  2: "text-[17px] font-semibold tracking-tight",
+  3: "text-[15.5px] font-semibold",
+};
+
 function RichText({
   text,
   sources,
@@ -62,71 +137,99 @@ function RichText({
   sources: Source[];
   onOpenSource: OpenSource;
 }) {
-  const blocks = useMemo(() => text.split(/\n{2,}/), [text]);
+  const blocks = useMemo(() => parseMarkdown(text), [text]);
+  const inline = (value: string) => <InlineText text={value} sources={sources} onOpenSource={onOpenSource} />;
 
   return (
-    <>
-      {blocks.map((block, blockIndex) => {
-        const lines = block.trim().split("\n");
-        if (lines.length >= 2 && lines.every((line) => line.trim().startsWith("|"))) {
-          return <TableBlock key={blockIndex} lines={lines} />;
+    <div className="space-y-3 text-[15px] leading-relaxed">
+      {blocks.map((block, index) => {
+        switch (block.kind) {
+          case "heading": {
+            const Tag = block.level <= 2 ? "h3" : "h4";
+            return (
+              <Tag
+                key={index}
+                className={cn(HEADING_STYLES[block.level] ?? "text-[15px] font-semibold", index > 0 && "!mt-5")}
+              >
+                {inline(block.text)}
+              </Tag>
+            );
+          }
+          case "list": {
+            const List = block.ordered ? "ol" : "ul";
+            return (
+              <List key={index} className="space-y-1.5">
+                {block.items.map((item, i) => (
+                  <li key={i} className="flex gap-2.5" style={{ paddingLeft: item.depth * 20 }}>
+                    <span
+                      aria-hidden
+                      className={cn(
+                        "shrink-0 select-none text-[rgb(var(--text))]/55",
+                        block.ordered ? "min-w-[1.25rem] tabular-nums" : "w-3 text-center",
+                      )}
+                    >
+                      {block.ordered ? (/\d/.test(item.marker) ? item.marker.replace(")", ".") : `${i + 1}.`) : item.depth % 2 ? "◦" : "•"}
+                    </span>
+                    <span className="min-w-0 flex-1">{inline(item.text)}</span>
+                  </li>
+                ))}
+              </List>
+            );
+          }
+          case "table":
+            return <TableBlock key={index} header={block.header} rows={block.rows} sources={sources} onOpenSource={onOpenSource} />;
+          case "quote":
+            return (
+              <blockquote key={index} className="border-l-2 border-black/15 pl-3.5 text-[rgb(var(--text))]/75">
+                {inline(block.text)}
+              </blockquote>
+            );
+          case "code":
+            return (
+              <pre
+                key={index}
+                className="overflow-x-auto rounded-xl bg-black/[0.05] px-4 py-3 font-mono text-[12.5px] leading-relaxed"
+              >
+                {block.text}
+              </pre>
+            );
+          case "rule":
+            return <hr key={index} className="border-black/10" />;
+          default:
+            return <p key={index}>{inline(block.text)}</p>;
         }
-        return (
-          <p
-            key={blockIndex}
-            className={cn("text-[15px] leading-relaxed", blockIndex > 0 && "mt-3")}
-          >
-            {block.split(/(\[\d+\])/g).map((part, partIndex) => {
-              const citation = part.match(/^\[(\d+)\]$/);
-              if (citation) {
-                const number = Number(citation[1]);
-                return (
-                  <CitationPill
-                    key={partIndex}
-                    number={number}
-                    source={sources.find((s) => s.citation === number)}
-                    onOpen={onOpenSource}
-                  />
-                );
-              }
-              return (
-                <Fragment key={partIndex}>
-                  {part.split("\n").map((line, i, all) => (
-                    <Fragment key={i}>
-                      {line}
-                      {i < all.length - 1 && <br />}
-                    </Fragment>
-                  ))}
-                </Fragment>
-              );
-            })}
-          </p>
-        );
       })}
-    </>
+    </div>
   );
 }
 
 // ---------------------------------------------------------------- tables
-function parseTable(lines: string[]): string[][] {
-  return lines
-    .map((line) => line.trim())
-    .filter((line) => !/^\|[\s:|-]+\|$/.test(line)) // the |---|---| divider
-    .map((line) =>
-      line
-        .replace(/^\|/, "")
-        .replace(/\|$/, "")
-        .split("|")
-        .map((cell) => cell.trim()),
-    );
-}
-
 const csvCell = (cell: string) => (/[",\n]/.test(cell) ? `"${cell.replace(/"/g, '""')}"` : cell);
+const NUMERIC_CELL = /^[-+]?[₹$€£]?\s?[\d,]+(\.\d+)?\s?%?$/;
 
-function TableBlock({ lines }: { lines: string[] }) {
-  const rows = useMemo(() => parseTable(lines), [lines]);
+function TableBlock({
+  header,
+  rows,
+  sources,
+  onOpenSource,
+}: {
+  header: string[];
+  rows: string[][];
+  sources: Source[];
+  onOpenSource: OpenSource;
+}) {
   const [copied, setCopied] = useState(false);
-  const [head, ...body] = rows;
+  const plain = useMemo(() => [header, ...rows].map((row) => row.map(cellText)), [header, rows]);
+  // Right-align number columns (not the first column, which labels the row).
+  const numeric = useMemo(
+    () =>
+      header.map((_, c) => {
+        if (c === 0) return false;
+        const values = rows.map((row) => cellText(row[c] ?? "")).filter(Boolean);
+        return values.length > 0 && values.every((value) => NUMERIC_CELL.test(value));
+      }),
+    [header, rows],
+  );
 
   useEffect(() => {
     if (!copied) return;
@@ -135,8 +238,8 @@ function TableBlock({ lines }: { lines: string[] }) {
   }, [copied]);
 
   const download = () => {
-    const csv = rows.map((row) => row.map(csvCell).join(",")).join("\r\n");
-    const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
+    const csv = plain.map((row) => row.map(csvCell).join(",")).join("\r\n");
+    const url = URL.createObjectURL(new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8" }));
     const link = document.createElement("a");
     link.href = url;
     link.download = "zambot-table.csv";
@@ -146,33 +249,46 @@ function TableBlock({ lines }: { lines: string[] }) {
 
   const copy = async () => {
     try {
-      await navigator.clipboard.writeText(rows.map((row) => row.join("\t")).join("\n"));
+      await navigator.clipboard.writeText(plain.map((row) => row.join("\t")).join("\n"));
       setCopied(true);
     } catch {
       /* clipboard blocked */
     }
   };
 
-  if (!head) return null;
+  if (!header.length) return null;
   return (
-    <div className="mt-3 overflow-hidden rounded-2xl border border-black/5 bg-white/80 shadow-sm">
+    <div className="overflow-hidden rounded-2xl border border-black/5 bg-white/80 shadow-sm">
       <div className="overflow-x-auto">
-        <table className="w-full min-w-[420px] border-collapse text-left text-[13.5px]">
+        <table className="w-full min-w-[420px] border-collapse text-left text-[13.5px] leading-snug">
           <thead>
             <tr className="bg-black/[0.03]">
-              {head.map((cell, i) => (
-                <th key={i} className="px-3.5 py-2.5 text-[12px] font-semibold uppercase tracking-wide text-muted">
-                  {cell}
+              {header.map((cell, i) => (
+                <th
+                  key={i}
+                  className={cn(
+                    "px-3.5 py-2.5 text-[12px] font-semibold uppercase tracking-wide text-muted",
+                    numeric[i] && "text-right",
+                  )}
+                >
+                  <InlineText text={cell} sources={sources} onOpenSource={onOpenSource} />
                 </th>
               ))}
             </tr>
           </thead>
           <tbody>
-            {body.map((row, r) => (
+            {rows.map((row, r) => (
               <tr key={r} className="border-t border-black/5">
                 {row.map((cell, c) => (
-                  <td key={c} className={cn("px-3.5 py-2.5", c === 0 && "font-medium")}>
-                    {cell}
+                  <td
+                    key={c}
+                    className={cn(
+                      "px-3.5 py-2.5 align-top",
+                      c === 0 && "font-medium",
+                      numeric[c] && "text-right tabular-nums",
+                    )}
+                  >
+                    <InlineText text={cell} sources={sources} onOpenSource={onOpenSource} />
                   </td>
                 ))}
               </tr>
@@ -610,7 +726,8 @@ const STAGE_LABELS: Record<string, string> = {
   remembering: "Recalling the conversation",
   rewriting: "Working out what you mean",
   retrieving: "Searching your documents",
-  sandbox: "Calculating from the document",
+  sandbox: "Calculating in the spreadsheet",
+  ranking: "Ranking the best passages",
   generating: "Writing the answer",
   verifying: "Checking it against the source",
   reretrieving: "Looking again",

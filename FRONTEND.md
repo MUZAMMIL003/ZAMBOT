@@ -1,8 +1,9 @@
 # Zambot Frontend — Reference Guide
 
 > Snapshot as of **2026-09-24**, after the "document intelligence" redesign.
-> The design is still being iterated and the backend is on hold. Read this
-> first, then check the code: files may have moved on since.
+> Now connected end to end to the FastAPI backend in `../backend` (real mode),
+> with the in-browser demo backend still available. Read this first, then
+> check the code: files may have moved on since.
 
 ---
 
@@ -12,9 +13,9 @@ Zambot is a document-chat app. You upload documents and ask questions, and
 every answer quotes the passage and page it came from. This folder is the web
 client.
 
-- **Frontend-only work for now.** The FastAPI backend in `../backend` exists
-  but is paused. Everything runs against the in-browser **demo backend**
-  (`src/lib/demo.ts`).
+- **Two modes.** Real mode talks to the FastAPI backend in `../backend`
+  (Supabase, Gemini/Groq, E2B). Demo mode runs everything in the browser
+  (`src/lib/demo.ts`) and needs no server.
 - **Everything must stay on free tiers** (see §10 for how each feature maps
   to a free service).
 - **The visual design is the owner's**: a light pastel "ChatEase" look with
@@ -22,7 +23,11 @@ client.
   wordmark. The layout and flow follow ChatGPT / Claude (sidebar, composer
   first) plus NotebookLM / ChatPDF (a document panel with highlighted
   citations).
-- **No login.** Pressing *Launch Zambot* creates a session silently.
+- **No login.** Pressing *Launch Zambot* opens a session silently. In real
+  mode the app sends one shared access key (`VITE_ACCESS_KEY`) as the
+  `X-Access-Key` header on every request; it must match `APP_ACCESS_KEY` in
+  `backend/.env`. The key ships inside the built bundle, so it is a light
+  gate, not real security.
 
 ---
 
@@ -43,9 +48,23 @@ npm run dev        # http://127.0.0.1:3000
 | `npm run shots` | Viewport screenshots via local Chrome (needs `preview`) |
 
 Demo mode turns on automatically when `VITE_API_URL` is unset. To use the real
-backend, create `.env.local` with `VITE_API_URL=http://localhost:8000` (and
-optionally `VITE_DEMO_MODE=false`). The host is pinned to `127.0.0.1` because
-Windows can resolve `localhost` to `::1`.
+backend, create `.env.local` (gitignored; see `.env.local.example`):
+
+| Variable | Value |
+|---|---|
+| `VITE_API_URL` | `http://127.0.0.1:8000` (the backend) |
+| `VITE_DEMO_MODE` | `false` |
+| `VITE_ACCESS_KEY` | The same value as `APP_ACCESS_KEY` in `backend/.env` |
+
+The backend must list the frontend's address in `FRONTEND_ORIGIN` (CORS).
+The host is pinned to `127.0.0.1` because Windows can resolve `localhost` to
+`::1`. Restart Vite after changing `.env.local`.
+
+**Real-mode differences:** uploads accept only PDF, Word (.docx) and Excel
+(.xlsx); documents are read in an E2B sandbox and the live code is shown
+under *Watch the sandbox* (and kept in Sources as *Show sandbox*); a question
+sent with files is queued and answered once reading finishes; a 401 clears the
+session and shows a "key rejected" message.
 
 ---
 
@@ -211,9 +230,9 @@ switches between `realApi` and `demoApi` based on `IS_DEMO`.
 | `api.brief(chatId)` → `DocumentBrief { summary, key_facts[], questions[] }` | The UI falls back to `suggestions()` if it fails |
 | `api.documentPage(docId, page)` → `DocumentPage { heading, blocks[{text or null}] }` | `null` blocks are drawn as grey text lines |
 
-The real backend does **not** have `/chat/:id/brief`,
-`/documents/:id/pages/:n`, snippets, related/closest, `document_ids`,
-`regenerate` or sandbox events yet. See §10.
+The real backend implements all of these: brief, document pages, snippets,
+related/closest, `document_ids`, `regenerate` and sandbox events. §10 records
+how each maps to a free service.
 
 **Browser storage:**
 
@@ -298,12 +317,15 @@ nothing is duplicated.
 src/
   main.tsx · App.tsx (routes) · index.css (tokens + component classes)
   lib/     api.ts · demo.ts · types.ts · providers.tsx (auth, legacy theme) ·
-           chats-context.tsx (chats, deleteChat, deleteAllChats, openSidebar) · utils.ts
+           chats-context.tsx (chats, deleteChat, deleteAllChats, openSidebar) · utils.ts ·
+           markdown.ts (line-based answer parser: headings, `-`/`*`/`•`/numbered lists, pipe
+           tables with or without a separator, quotes, code; stray citation cells join the row)
   routes/  Landing · AppShell (Sidebar + page) · Start · Conversation · Files · Settings
   components/chat/
            Sidebar · Composer · FileDropZone · BriefCard · Message (RichText, tables,
            CitationPill + SourcePopover, SourceCards, ClosestPassage, RelatedQuestions,
-           AnswerFooter, Thinking) · SandboxBlock · DocumentPanel
+           AnswerFooter, Thinking) · SandboxBlock · DocumentPanel (spreadsheet sheets render as a
+           table: sticky header, row numbers, row filter, 200 rows at a time, quoted row highlighted)
            SideRail (DEAD, older)
   components/ui/
            Icon · AnimatedLogo · PageHeader (+ MenuButton) · List · Skeleton · Orb · Aurora
@@ -315,7 +337,7 @@ _superseded/   Home, NewChat, NavigationRail, HistoryRail, TabBar - replaced in 
 
 ---
 
-## 10. Backend work these features need (all free)
+## 10. How each feature is served by the backend (all free, all built)
 
 | Feature | What the backend must add | Free way to do it |
 |---|---|---|

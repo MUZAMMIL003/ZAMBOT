@@ -8,7 +8,7 @@ export type DocumentStatus =
   | "failed"
   | "manual_review";
 
-export type ChatStatus = "pending" | "active" | "archived";
+export type ChatStatus = "pending" | "processing" | "active" | "archived";
 
 export interface User {
   id: string;
@@ -42,9 +42,26 @@ export interface Chat {
   document_count: number;
   ready_document_count: number;
   last_message_at: string | null;
+  last_message_preview?: string | null;
   created_at: string;
   updated_at: string;
   documents: ChatDocumentPreview[];
+}
+
+/** One step of the extraction sandbox, shown live while a document is read. */
+export interface LiveStep {
+  kind: "probe" | "extract" | "note";
+  attempt: number;
+  code: string;
+  output: string;
+  status: "running" | "success" | "failed";
+}
+
+export interface LiveState {
+  stage: string;
+  label: string | null;
+  detail: string | null;
+  steps: LiveStep[];
 }
 
 export interface DocumentRecord {
@@ -63,8 +80,11 @@ export interface DocumentRecord {
   page_count: number;
   char_count: number;
   chunk_count: number;
+  used_recipe?: boolean;
+  used_fallback?: boolean;
   created_at: string;
   ready_at: string | null;
+  live?: LiveState | null;
 }
 
 export interface UploadResult {
@@ -138,13 +158,13 @@ export interface AnswerResponse {
 
 /** Events emitted by POST /chat/{id}/stream. */
 export type StreamEvent =
-  | { type: "status"; stage: string }
+  | { type: "status"; stage: string; label?: string }
   | { type: "rewritten"; question: string }
   | { type: "token"; text: string }
   | { type: "replace"; text: string }
   | { type: "sources"; sources: Source[] }
   | { type: "sandbox_start"; code: string; summary?: string | null }
-  | { type: "sandbox_result"; output: string; status: "success" | "error" }
+  | { type: "sandbox_result"; output: string; status: "success" | "error"; summary?: string | null }
   | {
       type: "done";
       message_id: string;
@@ -194,12 +214,26 @@ export interface DocumentBrief {
 }
 
 /** One page of a document, for the in-app viewer. */
+/**
+ * One block of a document page. Text blocks carry `text` (`null` is a
+ * paragraph the preview does not carry - drawn as grey lines); tables carry
+ * `header` and `rows` instead.
+ */
+export interface PageBlock {
+  type?: "heading" | "paragraph" | "table";
+  text?: string | null;
+  level?: number;
+  header?: string[];
+  rows?: string[][];
+}
+
 export interface DocumentPage {
   document_id: string;
   filename: string;
   page: number;
   page_count: number;
+  /** "Page 3", or "Sheet: Sales" for spreadsheets. */
+  label?: string;
   heading: string | null;
-  /** `text: null` is a paragraph the preview does not carry - drawn as grey lines. */
-  blocks: { text: string | null }[];
+  blocks: PageBlock[];
 }

@@ -13,12 +13,13 @@
  * highlight the chunk's text; the demo draws the page from stored passages.
  */
 import { AnimatePresence, motion } from "framer-motion";
-import { useEffect, useRef, useState, type ChangeEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
 
 import { FileTypeIcon, Icon } from "@/components/ui/Icon";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { api } from "@/lib/api";
-import type { DocumentPage, DocumentRecord } from "@/lib/types";
+import type { DocumentPage, DocumentRecord, PageBlock } from "@/lib/types";
+import { SandboxSteps } from "@/components/chat/BriefCard";
 import { ACCEPTED_EXTENSIONS, cn, formatBytes, truncate } from "@/lib/utils";
 
 export interface PanelFocus {
@@ -179,6 +180,7 @@ function DocumentView({ documents, focus, onFocus, onTab }: PanelProps) {
   const [failed, setFailed] = useState(false);
   const cache = useRef(new Map<string, DocumentPage>());
   const mark = useRef<HTMLParagraphElement>(null);
+  const isSheet = current?.extension === "xlsx";
 
   const currentId = current?.id;
   useEffect(() => {
@@ -250,6 +252,7 @@ function DocumentView({ documents, focus, onFocus, onTab }: PanelProps) {
 
   const highlighted = (text: string) =>
     Boolean(snippet) && (text === snippet || text.includes(snippet!) || snippet!.includes(text));
+  const sheetName = page?.label?.replace(/^Sheet:\s*/, "");
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
@@ -282,19 +285,19 @@ function DocumentView({ documents, focus, onFocus, onTab }: PanelProps) {
             type="button"
             onClick={() => go(pageNumber - 1)}
             disabled={pageNumber <= 1}
-            aria-label="Previous page"
+            aria-label={isSheet ? "Previous sheet" : "Previous page"}
             className="grid h-8 w-8 place-items-center rounded-full disabled:opacity-30"
           >
             <Icon name="chevronLeft" size={16} />
           </button>
           <span className="min-w-[88px] text-center text-[12.5px] tabular-nums">
-            Page {pageNumber} of {total}
+            {isSheet ? "Sheet" : "Page"} {pageNumber} of {total}
           </span>
           <button
             type="button"
             onClick={() => go(pageNumber + 1)}
             disabled={pageNumber >= total}
-            aria-label="Next page"
+            aria-label={isSheet ? "Next sheet" : "Next page"}
             className="grid h-8 w-8 place-items-center rounded-full disabled:opacity-30"
           >
             <Icon name="chevronRight" size={16} />
@@ -312,7 +315,12 @@ function DocumentView({ documents, focus, onFocus, onTab }: PanelProps) {
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-4">
-        <article className="min-h-[420px] rounded-xl bg-white px-6 py-7 shadow-[0_8px_30px_rgba(0,0,0,0.06)]">
+        <article
+          className={cn(
+            "min-h-[420px] rounded-xl bg-white shadow-[0_8px_30px_rgba(0,0,0,0.06)]",
+            isSheet ? "px-4 py-5" : "px-6 py-7",
+          )}
+        >
           {loading || (!page && !failed) ? (
             <div className="space-y-3">
               <Skeleton className="h-5 w-2/3" />
@@ -328,25 +336,40 @@ function DocumentView({ documents, focus, onFocus, onTab }: PanelProps) {
           ) : (
             <>
               <p className="mb-4 text-[10.5px] font-medium uppercase tracking-wider text-muted">
-                {page.filename} · page {page.page}
+                {page.filename} · {isSheet && sheetName ? `sheet ${sheetName}` : `page ${page.page}`}
               </p>
               {page.heading && (
                 <h3 className="mb-4 text-[17px] font-semibold leading-snug tracking-tight">{page.heading}</h3>
               )}
               <div className="space-y-4">
                 {page.blocks.map((block, index) =>
-                  block.text ? (
-                    <p
-                      key={index}
-                      ref={highlighted(block.text) ? mark : undefined}
-                      className={cn(
-                        "text-[13.5px] leading-[1.7] text-[rgb(var(--text))]/85",
-                        highlighted(block.text) &&
-                          "-mx-2 rounded-md bg-[#FFF1A8] px-2 py-1 text-[rgb(var(--text))] shadow-[inset_3px_0_0_#E8C547]",
-                      )}
-                    >
-                      {block.text}
-                    </p>
+                  block.type === "table" && block.header ? (
+                    <SheetTable key={`${page.document_id}:${page.page}:${index}`} block={block} snippet={snippet ?? null} />
+                  ) : block.text ? (
+                    block.type === "heading" ? (
+                      <h4
+                        key={index}
+                        ref={highlighted(block.text) ? mark : undefined}
+                        className={cn(
+                          "text-[15px] font-semibold leading-snug",
+                          highlighted(block.text) && "-mx-2 rounded-md bg-[#FFF1A8] px-2 py-1 shadow-[inset_3px_0_0_#E8C547]",
+                        )}
+                      >
+                        {block.text}
+                      </h4>
+                    ) : (
+                      <p
+                        key={index}
+                        ref={highlighted(block.text) ? mark : undefined}
+                        className={cn(
+                          "whitespace-pre-line text-[13.5px] leading-[1.7] text-[rgb(var(--text))]/85",
+                          highlighted(block.text) &&
+                            "-mx-2 rounded-md bg-[#FFF1A8] px-2 py-1 text-[rgb(var(--text))] shadow-[inset_3px_0_0_#E8C547]",
+                        )}
+                      >
+                        {block.text}
+                      </p>
+                    )
                   ) : (
                     <div key={index} aria-hidden className="space-y-2 py-0.5">
                       {[100, 96, 88, 60].map((width, i) => (
@@ -370,6 +393,165 @@ function DocumentView({ documents, focus, onFocus, onTab }: PanelProps) {
   );
 }
 
+// ------------------------------------------------------------ sheet tables
+const ROW_STEP = 200;
+const NUMERIC = /^[-+]?[₹$€£]?\s?[\d,]+(\.\d+)?\s?%?$/;
+const squash = (text: string) => text.replace(/\s+/g, " ").trim().toLowerCase();
+
+/**
+ * A spreadsheet table: sticky header, row numbers, numbers right-aligned, a
+ * row filter, and rows revealed in steps so big sheets stay fast. The row the
+ * answer quotes is highlighted and scrolled into view.
+ */
+function SheetTable({ block, snippet }: { block: PageBlock; snippet: string | null }) {
+  const header = useMemo(() => block.header ?? [], [block.header]);
+  const rows = useMemo(() => block.rows ?? [], [block.rows]);
+  const [query, setQuery] = useState("");
+  const [limit, setLimit] = useState(ROW_STEP);
+  const target = useRef<HTMLTableRowElement>(null);
+
+  const texts = useMemo(() => rows.map((row) => squash(row.join(" | "))), [rows]);
+  const wanted = snippet ? squash(snippet) : "";
+  const matches = useMemo(() => {
+    if (!wanted) return new Set<number>();
+    const hits = new Set<number>();
+    texts.forEach((text, index) => {
+      if ((text.length >= 6 && wanted.includes(text)) || (wanted.length >= 3 && text.includes(wanted))) hits.add(index);
+    });
+    return hits;
+  }, [texts, wanted]);
+  const firstHit = matches.size ? Math.min(...matches) : -1;
+
+  const numeric = useMemo(
+    () =>
+      header.map((_, c) => {
+        const values = rows.slice(0, 300).map((row) => (row[c] ?? "").trim()).filter(Boolean);
+        return values.length > 0 && values.every((value) => NUMERIC.test(value));
+      }),
+    [header, rows],
+  );
+
+  const needle = squash(query);
+  const visible = useMemo(() => {
+    const indexes = rows.map((_, index) => index);
+    return needle ? indexes.filter((index) => texts[index].includes(needle)) : indexes;
+  }, [rows, texts, needle]);
+
+  // Make sure the quoted row is rendered, then bring it into view.
+  useEffect(() => {
+    if (firstHit >= 0 && firstHit >= limit) setLimit(firstHit + ROW_STEP);
+  }, [firstHit, limit]);
+  useEffect(() => {
+    if (firstHit < 0) return;
+    const timer = setTimeout(() => target.current?.scrollIntoView({ block: "center", behavior: "smooth" }), 80);
+    return () => clearTimeout(timer);
+  }, [firstHit, snippet]);
+
+  const shown = visible.slice(0, limit);
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center gap-2">
+        <label className="flex h-9 min-w-0 flex-1 items-center gap-2 rounded-full bg-black/[0.04] px-3 text-[13px]">
+          <Icon name="search" size={14} className="shrink-0 text-muted" />
+          <input
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder="Filter rows"
+            aria-label="Filter rows"
+            className="min-w-0 flex-1 bg-transparent outline-none placeholder:text-muted"
+          />
+          {query && (
+            <button type="button" onClick={() => setQuery("")} aria-label="Clear filter" className="text-muted hover:text-[rgb(var(--text))]">
+              <Icon name="x" size={13} />
+            </button>
+          )}
+        </label>
+        <span className="shrink-0 text-[12px] tabular-nums text-muted">
+          {needle ? `${visible.length.toLocaleString()} of ` : ""}
+          {rows.length.toLocaleString()} rows
+        </span>
+      </div>
+
+      <div className="max-h-[calc(100dvh-300px)] min-h-[240px] overflow-auto rounded-lg border border-black/[0.07]">
+        <table className="w-max min-w-full border-collapse text-left text-[12.5px] leading-snug">
+          <thead>
+            <tr>
+              <th className="sticky left-0 top-0 z-20 border-b border-black/10 bg-[#F6F6F4] px-2.5 py-2 text-right text-[11px] font-medium text-muted">
+                #
+              </th>
+              {header.map((cell, c) => (
+                <th
+                  key={c}
+                  className={cn(
+                    "sticky top-0 z-10 whitespace-nowrap border-b border-black/10 bg-[#F6F6F4] px-3 py-2 text-[11.5px] font-semibold text-[rgb(var(--text))]/80",
+                    numeric[c] && "text-right",
+                  )}
+                >
+                  {cell || `Column ${c + 1}`}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {shown.map((index) => {
+              const hit = matches.has(index);
+              return (
+                <tr
+                  key={index}
+                  ref={index === firstHit ? target : undefined}
+                  className={cn("border-b border-black/[0.05] last:border-0", hit ? "bg-[#FFF1A8]" : index % 2 ? "bg-black/[0.015]" : "")}
+                >
+                  <td
+                    className={cn(
+                      "sticky left-0 border-r border-black/[0.05] px-2.5 py-1.5 text-right text-[11px] tabular-nums text-muted",
+                      hit ? "bg-[#FFF1A8] shadow-[inset_3px_0_0_#E8C547]" : "bg-white",
+                    )}
+                  >
+                    {index + 1}
+                  </td>
+                  {header.map((_, c) => (
+                    <td
+                      key={c}
+                      className={cn(
+                        "max-w-[260px] px-3 py-1.5 align-top",
+                        numeric[c] ? "whitespace-nowrap text-right tabular-nums" : "break-words",
+                      )}
+                    >
+                      {rows[index][c] ?? ""}
+                    </td>
+                  ))}
+                </tr>
+              );
+            })}
+            {shown.length === 0 && (
+              <tr>
+                <td colSpan={header.length + 1} className="px-3 py-8 text-center text-[13px] text-muted">
+                  No rows match “{query}”.
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+
+      {visible.length > shown.length && (
+        <div className="flex items-center justify-between gap-2 px-1 text-[12px] text-muted">
+          <span className="tabular-nums">
+            Showing {shown.length.toLocaleString()} of {visible.length.toLocaleString()}
+          </span>
+          <button
+            type="button"
+            onClick={() => setLimit((current) => current + ROW_STEP)}
+            className="rounded-full bg-black/[0.05] px-3 py-1.5 font-medium text-[rgb(var(--text))]/75 hover:bg-black/10"
+          >
+            Show {Math.min(ROW_STEP, visible.length - shown.length).toLocaleString()} more
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // -------------------------------------------------------------- sources tab
 function SourcesView({
   documents,
@@ -383,6 +565,7 @@ function SourcesView({
 }: PanelProps) {
   const fileRef = useRef<HTMLInputElement>(null);
   const [confirming, setConfirming] = useState<string | null>(null);
+  const [showing, setShowing] = useState<string | null>(null);
 
   useEffect(() => {
     if (!confirming) return;
@@ -466,7 +649,23 @@ function SourcesView({
                 </div>
               )}
 
+              {showing === document.id && (document.live?.steps?.length ?? 0) > 0 && (
+                <SandboxSteps steps={document.live!.steps} />
+              )}
+
               <div className="mt-2 flex items-center justify-end gap-1">
+                {(document.live?.steps?.length ?? 0) > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setShowing((current) => (current === document.id ? null : document.id))}
+                    aria-expanded={showing === document.id}
+                    className="mr-auto flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[12px] font-medium text-[rgb(var(--text))]/60 hover:bg-black/5 hover:text-[rgb(var(--text))]"
+                  >
+                    <Icon name="code" size={13} />
+                    {showing === document.id ? "Hide sandbox" : "Show sandbox"}
+                    {document.used_recipe ? " · saved recipe" : document.used_fallback ? " · basic extractor" : ""}
+                  </button>
+                )}
                 {document.status === "failed" && (
                   <button
                     type="button"

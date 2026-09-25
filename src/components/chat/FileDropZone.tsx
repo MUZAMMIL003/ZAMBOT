@@ -6,7 +6,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { useRef, useState, type DragEvent, type ReactNode } from "react";
 
 import { Icon } from "@/components/ui/Icon";
-import { cn } from "@/lib/utils";
+import { ACCEPTED_LABEL, cn } from "@/lib/utils";
 
 const hasFiles = (event: DragEvent) => Array.from(event.dataTransfer.types).includes("Files");
 
@@ -69,7 +69,7 @@ export function FileDropZone({
                 <Icon name="upload" size={24} />
               </span>
               <p className="text-[16px] font-semibold">{label}</p>
-              <p className="text-[13px] text-muted">PDF, Word, Excel, PowerPoint, CSV, text or HTML</p>
+              <p className="text-[13px] text-muted">{ACCEPTED_LABEL}</p>
             </div>
           </motion.div>
         )}

@@ -18,11 +18,13 @@ import { FileTypeIcon, Icon } from "@/components/ui/Icon";
 import { MenuButton } from "@/components/ui/PageHeader";
 import { ApiError, IS_DEMO, api } from "@/lib/api";
 import { useChats } from "@/lib/chats-context";
-import { cn, relativeTime } from "@/lib/utils";
+import type { Chat } from "@/lib/types";
+import { ACCEPTED_LABEL, cn, relativeTime } from "@/lib/utils";
 
 const EASE = [0.22, 1, 0.36, 1] as const;
 
 export interface StartState {
+  chat?: Chat;
   initialMessage?: string;
   initialFiles?: File[];
 }
@@ -54,7 +56,7 @@ export function Start() {
       try {
         const chat = await api.createChat(titleFor(text, files));
         await refresh();
-        const state: StartState = { initialMessage: text || undefined, initialFiles: files };
+        const state: StartState = { chat, initialMessage: text || undefined, initialFiles: files };
         navigate(`/chats/${chat.id}`, { replace: true, state });
       } catch (caught) {
         setError((caught as ApiError).message || "Could not start a chat.");
@@ -117,7 +119,7 @@ export function Start() {
               </p>
             )}
             <p className="mt-3 text-center text-[12px] text-muted">
-              PDF, Word, Excel, PowerPoint, CSV, text and HTML · drop files anywhere
+              {ACCEPTED_LABEL} · drop files anywhere
             </p>
           </motion.div>
 

@@ -38,6 +38,12 @@ import { cn } from "@/lib/utils";
 import type { StartState } from "@/routes/Start";
 
 const POLL_MS = 2000;
+
+/** Check often at first, then back off; wait longer while a quota is waited out. */
+function pollDelay(polls: number, documents: DocumentRecord[]): number {
+  if (documents.some((d) => /waiting/i.test(d.live?.label ?? d.status_label ?? ""))) return 8000;
+  return polls < 15 ? POLL_MS : polls < 45 ? 4000 : 6000;
+}
 const PROCESSING: DocumentStatus[] = ["uploaded", "extracting", "analyzing"];
 
 interface Queued {
@@ -83,6 +89,8 @@ export function Conversation() {
   const { chatId = "" } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
+  const handoff = useRef(location.state);
+  handoff.current = location.state;
   const { refresh, deleteChat } = useChats();
 
   const [chat, setChat] = useState<Chat | null>(null);
@@ -95,6 +103,7 @@ export function Conversation() {
   const [streamingId, setStreamingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [queue, setQueue] = useState<Queued[]>([]);
+  const [uploading, setUploading] = useState<{ name: string; extension: string }[]>([]);
 
   const [panelOpen, setPanelOpen] = useState(false);
   const [panelTab, setPanelTab] = useState<PanelTab>("document");
@@ -105,11 +114,13 @@ export function Conversation() {
   const scrollRef = useRef<HTMLDivElement>(null);
   const abortRef = useRef<AbortController | null>(null);
   const pollRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pollCount = useRef(0);
   const pinned = useRef(true);
 
-  const ready = chat?.status === "active";
-  const processing = documents.some((d) => PROCESSING.includes(d.status));
+  const documentsProcessing = documents.some((d) => PROCESSING.includes(d.status));
+  const processing = uploading.length > 0 || documentsProcessing;
   const readyDocs = useMemo(() => documents.filter((d) => d.status === "ready"), [documents]);
+  const ready = readyDocs.length > 0;
   const readyKey = readyDocs.map((d) => d.id).join(",");
   const inUse = readyDocs.filter((d) => !excluded.has(d.id)).length;
 
@@ -139,6 +150,17 @@ export function Conversation() {
     setFocus(null);
     setBrief(null);
     setQueue([]);
+
+    // A chat just created on the start screen is known to be empty: open it at once.
+    const fresh = (handoff.current as StartState | null)?.chat;
+    if (fresh?.id === chatId) {
+      setChat(fresh);
+      setDocuments([]);
+      setMessages([]);
+      setError(null);
+      setLoading(false);
+      return;
+    }
 
     void (async () => {
       setLoading(true);
@@ -206,12 +228,17 @@ export function Conversation() {
   const pollDocuments = useCallback(async () => {
     try {
       const status = await api.documentsStatus(chatId);
-      setDocuments(status.documents);
+      setDocuments((current) => {
+        const known = new Set(status.documents.map((d) => d.id));
+        return [...status.documents, ...current.filter((d) => !known.has(d.id) && PROCESSING.includes(d.status))];
+      });
       setChat((c) => (c ? { ...c, status: status.chat_status } : c));
       if (status.any_processing) {
-        pollRef.current = setTimeout(() => void pollDocuments(), POLL_MS);
+        pollCount.current += 1;
+        pollRef.current = setTimeout(() => void pollDocuments(), pollDelay(pollCount.current, status.documents));
       } else {
         pollRef.current = null;
+        pollCount.current = 0;
         await refresh();
       }
     } catch {
@@ -220,10 +247,10 @@ export function Conversation() {
   }, [chatId, refresh]);
 
   useEffect(() => {
-    if (processing && !pollRef.current) {
-      pollRef.current = setTimeout(() => void pollDocuments(), POLL_MS);
+    if (documentsProcessing && !pollRef.current) {
+      pollRef.current = setTimeout(() => void pollDocuments(), pollDelay(pollCount.current, documents));
     }
-  }, [processing, pollDocuments]);
+  }, [documentsProcessing, documents, pollDocuments]);
 
   useEffect(
     () => () => {
@@ -315,7 +342,10 @@ export function Conversation() {
             case "sandbox_result":
               if (runs.length > 0) {
                 const current = runs[runs.length - 1];
-                runs = [...runs.slice(0, -1), { ...current, output: event.output, status: event.status }];
+                runs = [
+                  ...runs.slice(0, -1),
+                  { ...current, output: event.output, status: event.status, summary: event.summary ?? current.summary },
+                ];
                 upsert({ sandbox_runs: runs });
               }
               break;
@@ -357,6 +387,7 @@ export function Conversation() {
   const attach = useCallback(
     async (files: File[]) => {
       setError(null);
+      setUploading(files.map((file) => ({ name: file.name, extension: file.name.split(".").pop()?.toLowerCase() ?? "" })));
       try {
         const result = await api.uploadDocuments(chatId, files);
         if (result.documents.length) setDocuments((c) => [...c, ...result.documents]);
@@ -368,6 +399,8 @@ export function Conversation() {
       } catch (caught) {
         setError((caught as ApiError).message);
         return false;
+      } finally {
+        setUploading([]);
       }
     },
     [chatId, refresh],
@@ -379,17 +412,26 @@ export function Conversation() {
     setMessages((c) => [...c, { id, role: "user", content: text, queued: true }]);
     setQueue((q) => [...q, { id, text }]);
     pinned.current = true;
+    return id;
   }, []);
 
   const submit = useCallback(
     async (text: string, files: File[]) => {
-      let added = false;
-      if (files.length) added = await attach(files);
+      if (files.length) {
+        const queuedId = text ? enqueue(text) : null;
+        const added = await attach(files);
+        if (!added && queuedId) {
+          setQueue((q) => q.filter((item) => item.id !== queuedId));
+          if (ready) void send(text, { queuedId });
+          else setMessages((c) => c.map((m) => (m.id === queuedId ? { ...m, queued: false } : m)));
+        }
+        return;
+      }
       if (!text) return;
-      if (added || processing) enqueue(text);
+      if (processing) enqueue(text);
       else void send(text);
     },
-    [attach, processing, enqueue, send],
+    [attach, processing, ready, enqueue, send],
   );
 
   // Ask the waiting questions, one at a time, once reading has finished.
@@ -547,11 +589,13 @@ export function Conversation() {
           >
             <BriefCard
               documents={documents}
+              uploading={uploading}
               brief={brief}
               hasMessages={messages.length > 0}
               onAsk={(q) => void submit(q, [])}
               onOpenFact={openFact}
               onOpenSources={openSources}
+              onRetry={(id) => void retryDocument(id)}
             />
 
             {messages.map((message) => (
