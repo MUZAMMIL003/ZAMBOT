@@ -256,6 +256,16 @@
   }
 }
 
+/* The light that runs along the active segment of a reading progress bar. */
+@keyframes pipeline-sheen {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   html {
     scroll-behavior: auto;

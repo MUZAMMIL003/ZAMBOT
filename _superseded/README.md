@@ -5,3 +5,4 @@ Restore one by moving it back to the same path under src/.
 
 - routes/Home.tsx, routes/NewChat.tsx -> src/routes/Start.tsx
 - components/chat/NavigationRail.tsx, HistoryRail.tsx, TabBar.tsx -> src/components/chat/Sidebar.tsx
+- components/ui/Orb.tsx (the glowing orb) -> src/components/ui/PixelMark.tsx

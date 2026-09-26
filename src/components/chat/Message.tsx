@@ -27,9 +27,10 @@ import {
 import { createPortal } from "react-dom";
 
 import { FileTypeIcon, Icon, type IconName } from "@/components/ui/Icon";
-import type { Source, SandboxRun } from "@/lib/types";
+import type { Source, SandboxRun, TraceStep } from "@/lib/types";
 import { cellText, parseInline, parseMarkdown, toPlainText, type InlineToken } from "@/lib/markdown";
 import { cn } from "@/lib/utils";
+import { AnswerTrace } from "./AnswerSteps";
 import { SandboxBlock } from "./SandboxBlock";
 
 export interface DisplayMessage {
@@ -42,6 +43,8 @@ export interface DisplayMessage {
   rewritten?: string | null;
   streaming?: boolean;
   sandbox_runs?: SandboxRun[] | null;
+  /** The steps taken to answer, with timings. */
+  trace?: TraceStep[] | null;
   related?: string[] | null;
   closest?: Source | null;
   /** A question waiting for the documents to finish reading. */
@@ -514,6 +517,9 @@ export function Message({
           </div>
         ) : (
           <div className="py-2 text-[rgb(var(--text))]">
+            {message.trace && message.trace.length > 0 && (
+              <AnswerTrace trace={message.trace} streaming={message.streaming} />
+            )}
             <RichText text={message.content} sources={sources} onOpenSource={onOpenSource} />
             {message.streaming && (
               <span

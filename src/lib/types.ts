@@ -55,6 +55,25 @@ export interface LiveStep {
   code: string;
   output: string;
   status: "running" | "success" | "failed";
+  /** The reading phase this run belongs to. */
+  phase?: PhaseKey | null;
+  started_at?: number;
+  ended_at?: number;
+}
+
+/** The six stages every document goes through, in order. */
+export type PhaseKey = "upload" | "inspect" | "extract" | "chunk" | "embed" | "index";
+export type PhaseStatus = "pending" | "active" | "done" | "failed" | "skipped";
+
+export interface Phase {
+  key: PhaseKey;
+  status: PhaseStatus;
+  detail: string | null;
+  /** What the phase found or produced - counts, sizes, a sample passage. */
+  facts: Record<string, unknown>;
+  /** Epoch milliseconds. */
+  started_at: number | null;
+  ended_at: number | null;
 }
 
 export interface LiveState {
@@ -62,6 +81,15 @@ export interface LiveState {
   label: string | null;
   detail: string | null;
   steps: LiveStep[];
+  phases?: Phase[];
+}
+
+/** One step the assistant took to answer, with how long it took. */
+export interface TraceStep {
+  stage: string;
+  label?: string;
+  ms: number;
+  facts: Record<string, unknown>;
 }
 
 export interface DocumentRecord {
@@ -131,6 +159,7 @@ export interface ChatMessage {
   rewritten_question: string | null;
   sources: Source[] | null;
   sandbox_runs?: SandboxRun[] | null;
+  trace?: TraceStep[] | null;
   verified: boolean | null;
   /** Follow-up questions offered under the answer. */
   related?: string[] | null;
@@ -159,6 +188,7 @@ export interface AnswerResponse {
 /** Events emitted by POST /chat/{id}/stream. */
 export type StreamEvent =
   | { type: "status"; stage: string; label?: string }
+  | ({ type: "step" } & TraceStep)
   | { type: "rewritten"; question: string }
   | { type: "token"; text: string }
   | { type: "replace"; text: string }
@@ -174,6 +204,7 @@ export type StreamEvent =
       grounded: boolean;
       sources: Source[];
       sandbox_runs?: SandboxRun[];
+      trace?: TraceStep[] | null;
       related?: string[];
       closest?: Source | null;
       latency_ms?: number;
@@ -211,11 +242,12 @@ export interface DocumentBrief {
   summary: string;
   key_facts: KeyFact[];
   questions: string[];
+  /** True while the server is still writing it; ask again shortly. */
+  pending?: boolean;
 }
 
-/** One page of a document, for the in-app viewer. */
 /**
- * One block of a document page. Text blocks carry `text` (`null` is a
+ * One block of a document page, for the in-app viewer. Text blocks carry `text` (`null` is a
  * paragraph the preview does not carry - drawn as grey lines); tables carry
  * `header` and `rows` instead.
  */

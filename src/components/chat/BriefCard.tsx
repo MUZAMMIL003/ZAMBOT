@@ -2,12 +2,13 @@
  * The card at the top of every conversation. It is the chat's "front page":
  *
  *   no documents : what to do (attach one)
- *   reading      : per-file progress, the extraction sandbox's code and output
- *                  as it runs, and a promise that a question typed now will be
+ *   reading      : each file's journey, step by step - inspect, extract, split,
+ *                  map the meaning, file it away - with the sandbox code as it
+ *                  runs, and a promise that a question typed now will be
  *                  answered when reading finishes
- *   failed       : why each file could not be read, with a Retry button
+ *   failed       : where it broke and why, with a Retry button
  *   ready        : the brief - a short summary, key facts that open the page
- *                  they came from, and starter questions
+ *                  they came from, starter questions, and how each file was read
  *
  * Once the conversation is under way it folds down to one line.
  */
@@ -15,36 +16,18 @@ import { AnimatePresence, motion } from "framer-motion";
 import { useEffect, useState } from "react";
 
 import { FileTypeIcon, Icon } from "@/components/ui/Icon";
-import { Orb } from "@/components/ui/Orb";
+import { PixelMark } from "@/components/ui/PixelMark";
 import { Skeleton } from "@/components/ui/Skeleton";
-import type { DocumentBrief, DocumentRecord, KeyFact, LiveStep } from "@/lib/types";
+import type { DocumentBrief, DocumentRecord, KeyFact } from "@/lib/types";
 import { cn, truncate } from "@/lib/utils";
+import { modeOf, percentOf, phasesOf, readSummary } from "@/lib/pipeline";
+import { ReadingPipeline } from "./ReadingPipeline";
+
+export { SandboxSteps } from "./ReadingPipeline";
 
 const EASE = [0.22, 1, 0.36, 1] as const;
-const PROGRESS: Record<string, number> = { uploaded: 8, extracting: 40, analyzing: 75, ready: 100 };
-const STAGE_PROGRESS: Record<string, number> = {
-  "Inspecting document": 18,
-  "Running saved recipe": 35,
-  "Writing extraction code": 32,
-  "Running in sandbox": 48,
-  "Checking result": 58,
-  "Splitting into chunks": 68,
-  "Creating embeddings": 80,
-  "Waiting for embedding quota…": 80,
-  "Saving to knowledge base": 92,
-};
 const FAILED = ["failed", "manual_review"];
 const PROCESSING = ["uploaded", "extracting", "analyzing"];
-
-function progressOf(document: DocumentRecord): number {
-  return STAGE_PROGRESS[document.status_label ?? ""] ?? PROGRESS[document.status] ?? 100;
-}
-
-function stageText(document: DocumentRecord): string {
-  if (document.status === "ready") return "Ready";
-  const label = document.status_label || document.status;
-  return document.status_detail && document.status_detail !== label ? `${label} · ${document.status_detail}` : label;
-}
 
 export function BriefCard({
   documents,
@@ -83,7 +66,9 @@ export function BriefCard({
         transition={{ duration: 0.45, ease: EASE }}
         className="flex flex-col items-center py-8 text-center"
       >
-        <Orb size={120} />
+        <span className="grid h-24 w-24 place-items-center rounded-[28px] bg-white/70 shadow-sm ring-1 ring-black/[0.05]">
+          <PixelMark mode="idle" size={56} />
+        </span>
         <h2 className="mt-6 text-[19px] font-semibold tracking-tight">Add a document to begin</h2>
         <p className="mx-auto mt-2 max-w-[36ch] text-[13.5px] leading-relaxed text-muted">
           Attach a file with the paperclip below, or drop it anywhere on this page. Answers come only
@@ -95,6 +80,11 @@ export function BriefCard({
 
   if (processing.length > 0 || uploading.length > 0) {
     const count = processing.length + uploading.length;
+    const lead = processing[0];
+    const mode = lead ? modeOf(phasesOf(lead)) : "index";
+    const percent = processing.length
+      ? Math.round(processing.reduce((sum, d) => sum + percentOf(phasesOf(d)), 0) / processing.length)
+      : 2;
     return (
       <motion.section
         initial={{ opacity: 0, y: 10 }}
@@ -102,33 +92,27 @@ export function BriefCard({
         className="rounded-[24px] border border-white/60 bg-white/55 p-4 shadow-sm backdrop-blur-md sm:p-5"
         aria-live="polite"
       >
-        <div className="flex items-center gap-3">
-          <Orb size={40} />
-          <div>
-            <h2 className="text-[15px] font-semibold">
-              {processing.length === 0 ? "Uploading" : "Reading"} {count} document{count === 1 ? "" : "s"}…
+        <div className="flex items-center gap-3.5">
+          <span className="relative grid h-14 w-14 shrink-0 place-items-center rounded-[18px] bg-[rgb(var(--text))] shadow-[0_6px_20px_rgba(0,0,0,0.18)]">
+            <PixelMark mode={mode} size={40} className="text-white" />
+          </span>
+          <div className="min-w-0 flex-1">
+            <h2 className="text-[15.5px] font-semibold tracking-tight">
+              {processing.length === 0 ? "Uploading" : "Reading"} {count === 1 ? "your document" : `${count} documents`}
             </h2>
-            <p className="text-[12.5px] text-muted">
-              Ask your question now - I will answer as soon as this finishes.
-            </p>
+            <p className="text-[12.5px] text-muted">Ask your question now. The answer arrives as soon as reading finishes.</p>
           </div>
+          <span className="shrink-0 font-mono text-[20px] font-medium tabular-nums tracking-tight">{percent}%</span>
         </div>
-        <ul className="mt-4 space-y-4">
-          {documents.map((document) => (
-            <DocumentProgress key={document.id} document={document} onRetry={onRetry} />
+        <ul className="mt-4 space-y-2.5">
+          {documents.map((document, index) => (
+            <li key={document.id}>
+              <ReadingPipeline document={document} onRetry={onRetry} defaultOpen={index === 0} />
+            </li>
           ))}
           {uploading.map((file) => (
-            <li key={file.name} className="flex items-center gap-3">
-              <FileTypeIcon extension={file.extension} />
-              <span className="min-w-0 flex-1">
-                <span className="flex items-baseline justify-between gap-3">
-                  <span className="truncate text-[13px] font-medium">{file.name}</span>
-                  <span className="shrink-0 text-[11.5px] text-muted">Uploading…</span>
-                </span>
-                <span className="mt-1.5 block h-1.5 overflow-hidden rounded-full bg-black/5">
-                  <span className="block h-full w-1/3 animate-pulse rounded-full bg-[rgb(var(--text))]/35" />
-                </span>
-              </span>
+            <li key={file.name}>
+              <UploadingRow name={file.name} extension={file.extension} />
             </li>
           ))}
         </ul>
@@ -144,13 +128,22 @@ export function BriefCard({
         className="rounded-[24px] border border-danger/25 bg-white/60 p-4 shadow-sm backdrop-blur-md sm:p-5"
         role="alert"
       >
-        <h2 className="text-[15px] font-semibold">
-          {failed.length === 1 ? "This document could not be read" : "These documents could not be read"}
-        </h2>
-        <p className="mt-0.5 text-[12.5px] text-muted">Retry, or attach a different file with the paperclip below.</p>
-        <ul className="mt-4 space-y-4">
+        <div className="flex items-center gap-3.5">
+          <span className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-white shadow-sm ring-1 ring-danger/20">
+            <PixelMark mode="error" size={28} className="text-danger" />
+          </span>
+          <div>
+            <h2 className="text-[15.5px] font-semibold tracking-tight">
+              {failed.length === 1 ? "This document could not be read" : "These documents could not be read"}
+            </h2>
+            <p className="text-[12.5px] text-muted">Open the steps to see where it stopped, then retry or attach a different file.</p>
+          </div>
+        </div>
+        <ul className="mt-4 space-y-2.5">
           {failed.map((document) => (
-            <DocumentProgress key={document.id} document={document} onRetry={onRetry} />
+            <li key={document.id}>
+              <ReadingPipeline document={document} onRetry={onRetry} defaultOpen={failed.length === 1} />
+            </li>
           ))}
         </ul>
       </motion.section>
@@ -170,7 +163,7 @@ export function BriefCard({
         aria-expanded={expanded}
         className="flex w-full items-center gap-3 px-4 py-3.5 text-left sm:px-5"
       >
-        <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-white text-[rgb(var(--text))]/80 shadow-sm ring-1 ring-black/5">
+        <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-white text-[rgb(var(--text))]/80 shadow-sm ring-1 ring-black/5">
           <Icon name="book" size={17} />
         </span>
         <span className="min-w-0 flex-1">
@@ -192,9 +185,11 @@ export function BriefCard({
           >
             <div className="border-t border-white/60 px-4 pb-4 pt-3.5 sm:px-5 sm:pb-5">
               {failed.length > 0 && (
-                <ul className="mb-4 space-y-3 rounded-2xl border border-danger/20 bg-danger/[0.04] p-3">
+                <ul className="mb-4 space-y-2.5">
                   {failed.map((document) => (
-                    <DocumentProgress key={document.id} document={document} onRetry={onRetry} />
+                    <li key={document.id}>
+                      <ReadingPipeline document={document} onRetry={onRetry} />
+                    </li>
                   ))}
                 </ul>
               )}
@@ -266,6 +261,7 @@ export function BriefCard({
                   </button>
                 </>
               )}
+              <HowItWasRead documents={ready} />
             </div>
           </motion.div>
         )}
@@ -274,130 +270,86 @@ export function BriefCard({
   );
 }
 
-
-function DocumentProgress({ document, onRetry }: { document: DocumentRecord; onRetry: (id: string) => void }) {
-  const failed = FAILED.includes(document.status);
-  const running = PROCESSING.includes(document.status);
-  const steps = document.live?.steps ?? [];
-  const [open, setOpen] = useState(false);
-
+/** Before the server has a record for the file: only the upload step is moving. */
+function UploadingRow({ name, extension }: { name: string; extension: string }) {
   return (
-    <li>
+    <div className="rounded-2xl bg-white/70 px-3.5 py-3 ring-1 ring-black/[0.05]">
       <div className="flex items-center gap-3">
-        <FileTypeIcon extension={document.extension} />
-        <span className="min-w-0 flex-1">
-          <span className="flex items-baseline justify-between gap-3">
-            <span className="truncate text-[13px] font-medium">{document.filename}</span>
-            <span className={cn("shrink-0 text-[11.5px]", failed ? "text-danger" : "text-muted")}>
-              {failed ? (document.status === "manual_review" ? "Needs review" : "Failed") : stageText(document)}
-            </span>
-          </span>
-          {!failed && (
-            <span className="mt-1.5 block h-1.5 overflow-hidden rounded-full bg-black/5">
-              <motion.span
-                className="block h-full rounded-full bg-[rgb(var(--text))]/55"
-                initial={false}
-                animate={{ width: `${progressOf(document)}%` }}
-                transition={{ duration: 0.8, ease: EASE }}
-              />
-            </span>
-          )}
-        </span>
+        <FileTypeIcon extension={extension} />
+        <span className="min-w-0 flex-1 truncate text-[13.5px] font-medium">{name}</span>
+        <span className="shrink-0 font-mono text-[11.5px] text-muted">sending…</span>
       </div>
-
-      {failed && (
-        <div className="mt-2 flex items-start gap-3 pl-11">
-          <p className="min-w-0 flex-1 text-[12.5px] leading-relaxed text-[rgb(var(--text))]/75">
-            {document.error || "This document could not be processed."}
-          </p>
-          <button
-            type="button"
-            onClick={() => onRetry(document.id)}
-            className="flex h-8 shrink-0 items-center gap-1.5 rounded-full bg-white px-3 text-[12.5px] font-medium shadow-sm ring-1 ring-black/10 hover:bg-black/[0.03]"
-          >
-            <Icon name="refresh" size={13} />
-            Retry
-          </button>
-        </div>
-      )}
-
-      {steps.length > 0 && (
-        <div className="mt-2 pl-11">
-          <button
-            type="button"
-            onClick={() => setOpen((value) => !value)}
-            aria-expanded={open}
-            className="flex items-center gap-1.5 text-[12px] font-medium text-[rgb(var(--text))]/60 hover:text-[rgb(var(--text))]"
-          >
-            <Icon name="code" size={13} />
-            {open ? "Hide sandbox" : running ? "Watch the sandbox" : "Show sandbox"}
-            <span className="text-muted">· {steps.filter((step) => step.kind !== "note").length} runs</span>
-            <Icon name="chevronDown" size={13} className={cn("transition-transform", open && "rotate-180")} />
-          </button>
-          <AnimatePresence initial={false}>
-            {open && (
-              <motion.div
-                initial={{ height: 0, opacity: 0 }}
-                animate={{ height: "auto", opacity: 1 }}
-                exit={{ height: 0, opacity: 0 }}
-                className="overflow-hidden"
-              >
-                <SandboxSteps steps={steps} />
-              </motion.div>
+      <div className="mt-2.5 flex gap-[3px]">
+        {[5, 15, 30, 10, 30, 10].map((weight, index) => (
+          <span key={index} className="relative h-[5px] overflow-hidden rounded-full bg-black/[0.07]" style={{ flex: weight }}>
+            {index === 0 && (
+              <span className="absolute inset-0 animate-[pipeline-sheen_1.2s_ease-in-out_infinite] bg-[linear-gradient(90deg,transparent,rgb(var(--text)),transparent)]" />
             )}
-          </AnimatePresence>
-        </div>
-      )}
-    </li>
+          </span>
+        ))}
+      </div>
+      <div className="mt-2.5 flex items-center gap-2.5">
+        <PixelMark mode="index" size={16} />
+        <span className="text-[12.5px] font-medium">Uploading</span>
+        <span className="text-[12.5px] text-muted">· sending the file to private storage</span>
+      </div>
+    </div>
   );
 }
 
-const STEP_TITLES: Record<LiveStep["kind"], string> = {
-  probe: "Inspecting the file",
-  extract: "Extraction script",
-  note: "Note",
-};
-
-export function SandboxSteps({ steps }: { steps: LiveStep[] }) {
+function ReadLine({ document, open, onToggle }: { document: DocumentRecord; open: boolean; onToggle: () => void }) {
+  const summary = readSummary(document);
   return (
-    <ol className="mt-2 space-y-2">
-      {steps.map((step, index) =>
-        step.kind === "note" ? (
-          <li key={index} className="rounded-xl bg-black/[0.04] px-3 py-2 text-[12px] text-[rgb(var(--text))]/75">
-            {step.output}
-          </li>
-        ) : (
-          <li key={index} className="overflow-hidden rounded-xl border border-black/5">
-            <div className="flex items-center justify-between gap-2 bg-white/80 px-3 py-1.5 text-[11.5px]">
-              <span className="font-medium">
-                {STEP_TITLES[step.kind]}
-                {step.kind === "extract" ? ` · attempt ${step.attempt}` : ""}
-              </span>
-              <span
-                className={cn(
-                  "flex items-center gap-1 font-medium",
-                  step.status === "success" && "text-emerald-700",
-                  step.status === "failed" && "text-danger",
-                  step.status === "running" && "text-muted",
-                )}
-              >
-                {step.status === "running" && (
-                  <span className="h-2.5 w-2.5 animate-spin rounded-full border-[1.5px] border-current border-t-transparent" />
-                )}
-                {step.status === "running" ? "Running" : step.status === "success" ? "Passed" : "Failed"}
-              </span>
-            </div>
-            <pre className="max-h-40 overflow-auto bg-[#1e1e1e] px-3 py-2 font-mono text-[11px] leading-relaxed text-zinc-300">
-              {step.code.trim()}
-            </pre>
-            {step.output && (
-              <pre className="max-h-32 overflow-auto whitespace-pre-wrap bg-[#0d0d0d] px-3 py-2 font-mono text-[11px] leading-relaxed text-zinc-400">
-                {step.output.trim()}
-              </pre>
-            )}
-          </li>
-        ),
+    <button
+      type="button"
+      onClick={onToggle}
+      aria-expanded={open}
+      className={cn(
+        "flex w-full items-center gap-2.5 rounded-xl px-2.5 py-2 text-left transition-colors hover:bg-white/80",
+        open && "bg-white/80",
       )}
-    </ol>
+    >
+      <PixelMark mode="done" size={16} />
+      <span className="min-w-0 flex-1 truncate text-[12.5px]">
+        <span className="font-medium">{truncate(document.filename, 34)}</span>
+        <span className="text-muted"> · {summary}</span>
+      </span>
+      <span className="shrink-0 text-[12px] font-medium text-[rgb(var(--text))]/60">{open ? "Hide steps" : "See the steps"}</span>
+    </button>
+  );
+}
+
+/** Under the brief: how each file was read, one line each, opening into the full journey. */
+function HowItWasRead({ documents }: { documents: DocumentRecord[] }) {
+  const [openId, setOpenId] = useState<string | null>(null);
+  if (!documents.length) return null;
+  return (
+    <div className="mt-4">
+      <p className="mb-1.5 text-[11.5px] font-medium uppercase tracking-wider text-muted">How it was read</p>
+      <ul className="space-y-1">
+        {documents.map((document) => (
+          <li key={document.id}>
+            <ReadLine
+              document={document}
+              open={openId === document.id}
+              onToggle={() => setOpenId((current) => (current === document.id ? null : document.id))}
+            />
+            <AnimatePresence initial={false}>
+              {openId === document.id && (
+                <motion.div
+                  initial={{ height: 0, opacity: 0 }}
+                  animate={{ height: "auto", opacity: 1 }}
+                  exit={{ height: 0, opacity: 0 }}
+                  transition={{ duration: 0.28, ease: EASE }}
+                  className="overflow-hidden"
+                >
+                  <ReadingPipeline document={document} defaultOpen className="mt-1.5" />
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </li>
+        ))}
+      </ul>
+    </div>
   );
 }

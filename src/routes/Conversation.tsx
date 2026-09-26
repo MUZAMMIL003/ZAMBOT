@@ -19,7 +19,8 @@ import { BriefCard } from "@/components/chat/BriefCard";
 import { Composer, type ComposerHandle } from "@/components/chat/Composer";
 import { DocumentPanel, type PanelFocus, type PanelTab } from "@/components/chat/DocumentPanel";
 import { FileDropZone } from "@/components/chat/FileDropZone";
-import { Message, Thinking, type DisplayMessage } from "@/components/chat/Message";
+import { LiveAnswerSteps } from "@/components/chat/AnswerSteps";
+import { Message, type DisplayMessage } from "@/components/chat/Message";
 import { Icon } from "@/components/ui/Icon";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Skeleton, SkeletonBubble } from "@/components/ui/Skeleton";
@@ -33,11 +34,14 @@ import type {
   KeyFact,
   SandboxRun,
   Source,
+  TraceStep,
 } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import type { StartState } from "@/routes/Start";
 
 const POLL_MS = 2000;
+const BRIEF_RETRY_MS = 4000;
+const BRIEF_TRIES = 45;
 
 /** Check often at first, then back off; wait longer while a quota is waited out. */
 function pollDelay(polls: number, documents: DocumentRecord[]): number {
@@ -100,6 +104,7 @@ export function Conversation() {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [stage, setStage] = useState<string | undefined>();
+  const [liveSteps, setLiveSteps] = useState<TraceStep[]>([]);
   const [streamingId, setStreamingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [queue, setQueue] = useState<Queued[]>([]);
@@ -184,6 +189,7 @@ export function Conversation() {
             verified: m.verified,
             rewritten: m.rewritten_question,
             sandbox_runs: m.sandbox_runs,
+            trace: m.trace,
             related: m.related,
             closest: m.closest,
           })),
@@ -204,23 +210,40 @@ export function Conversation() {
   }, [chatId, navigate, scrollToBottom]);
 
   // The brief, fetched again whenever another document finishes reading.
+  // While the server is still writing it, it answers "pending" at once and
+  // this checks back every few seconds - no request is ever left hanging.
   useEffect(() => {
     if (loading || !readyKey || processing) return;
     let cancelled = false;
-    api
-      .brief(chatId)
-      .then((result) => !cancelled && setBrief(result))
-      .catch(async () => {
-        // Older backends have no brief yet: fall back to starter questions.
-        try {
-          const questions = await api.suggestions(chatId);
-          if (!cancelled) setBrief({ chat_id: chatId, summary: "", key_facts: [], questions });
-        } catch {
-          /* a nicety, never an error the user needs to see */
-        }
-      });
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    let tries = 0;
+    const load = () => {
+      api
+        .brief(chatId)
+        .then((result) => {
+          if (cancelled) return;
+          if (result.pending) {
+            tries += 1;
+            if (tries < BRIEF_TRIES) timer = setTimeout(load, BRIEF_RETRY_MS);
+            else setBrief({ chat_id: chatId, summary: "A summary could not be written right now. Ask anything below.", key_facts: [], questions: [] });
+            return;
+          }
+          setBrief(result);
+        })
+        .catch(async () => {
+          // Older backends have no brief yet: fall back to starter questions.
+          try {
+            const questions = await api.suggestions(chatId);
+            if (!cancelled) setBrief({ chat_id: chatId, summary: "", key_facts: [], questions });
+          } catch {
+            /* a nicety, never an error the user needs to see */
+          }
+        });
+    };
+    load();
     return () => {
       cancelled = true;
+      if (timer) clearTimeout(timer);
     };
   }, [loading, readyKey, processing, chatId]);
 
@@ -279,6 +302,7 @@ export function Conversation() {
       });
       setBusy(true);
       setStage("remembering");
+      setLiveSteps([]);
       pinned.current = true;
 
       const controller = new AbortController();
@@ -286,6 +310,24 @@ export function Conversation() {
       let started = false;
       let buffer = "";
       let runs: SandboxRun[] = [];
+      // The steps taken so far. Backends that only announce each stage get
+      // their steps timed here instead; real "step" events replace those.
+      let trace: TraceStep[] = [];
+      const timedHere = new Set<string>();
+      let running: { stage: string; at: number } | null = { stage: "remembering", at: performance.now() };
+      const closeRunning = () => {
+        if (running && !trace.some((s) => s.stage === running!.stage)) {
+          trace = [...trace, { stage: running.stage, ms: Math.round(performance.now() - running.at), facts: {} }];
+          timedHere.add(running.stage);
+        }
+      };
+      const record = (step: TraceStep) => {
+        trace = timedHere.has(step.stage)
+          ? trace.map((s) => (s.stage === step.stage ? step : s))
+          : [...trace.filter((s) => s.stage !== step.stage), step];
+        timedHere.delete(step.stage);
+        setLiveSteps(trace);
+      };
 
       const upsert = (patch: Partial<DisplayMessage>) => {
         setMessages((current) => {
@@ -313,7 +355,14 @@ export function Conversation() {
         })) {
           switch (event.type) {
             case "status":
+              closeRunning();
+              running = { stage: event.stage, at: performance.now() };
+              setLiveSteps(trace);
               setStage(event.stage);
+              break;
+            case "step":
+              record({ stage: event.stage, label: event.label, ms: event.ms, facts: event.facts ?? {} });
+              if (started) upsert({ trace });
               break;
             case "rewritten":
               upsert({ rewritten: event.question });
@@ -325,7 +374,7 @@ export function Conversation() {
                 setStage(undefined);
               }
               buffer += event.text;
-              upsert({ content: buffer, streaming: true });
+              upsert({ content: buffer, streaming: true, trace });
               break;
             // A failed verification can replace the whole answer.
             case "replace":
@@ -350,7 +399,10 @@ export function Conversation() {
               }
               break;
             case "done":
+              closeRunning();
+              running = null;
               upsert({
+                trace: event.trace?.length ? event.trace : trace,
                 id: event.message_id || assistantId,
                 streaming: false,
                 verified: event.verified,
@@ -609,7 +661,7 @@ export function Conversation() {
               />
             ))}
 
-            <AnimatePresence>{busy && !streamingId && <Thinking stage={stage} />}</AnimatePresence>
+            <AnimatePresence>{busy && !streamingId && <LiveAnswerSteps steps={liveSteps} stage={stage} />}</AnimatePresence>
 
             {error && (
               <motion.div

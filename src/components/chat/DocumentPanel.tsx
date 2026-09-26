@@ -19,7 +19,8 @@ import { FileTypeIcon, Icon } from "@/components/ui/Icon";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { api } from "@/lib/api";
 import type { DocumentPage, DocumentRecord, PageBlock } from "@/lib/types";
-import { SandboxSteps } from "@/components/chat/BriefCard";
+import { ReadingPipeline } from "@/components/chat/ReadingPipeline";
+import { PixelMark } from "@/components/ui/PixelMark";
 import { ACCEPTED_EXTENSIONS, cn, formatBytes, truncate } from "@/lib/utils";
 
 export interface PanelFocus {
@@ -649,21 +650,19 @@ function SourcesView({
                 </div>
               )}
 
-              {showing === document.id && (document.live?.steps?.length ?? 0) > 0 && (
-                <SandboxSteps steps={document.live!.steps} />
-              )}
+              {showing === document.id && <ReadingPipeline document={document} defaultOpen className="mt-2.5" />}
 
               <div className="mt-2 flex items-center justify-end gap-1">
-                {(document.live?.steps?.length ?? 0) > 0 && (
+                {document.status !== "uploaded" && (
                   <button
                     type="button"
                     onClick={() => setShowing((current) => (current === document.id ? null : document.id))}
                     aria-expanded={showing === document.id}
                     className="mr-auto flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[12px] font-medium text-[rgb(var(--text))]/60 hover:bg-black/5 hover:text-[rgb(var(--text))]"
                   >
-                    <Icon name="code" size={13} />
-                    {showing === document.id ? "Hide sandbox" : "Show sandbox"}
-                    {document.used_recipe ? " · saved recipe" : document.used_fallback ? " · basic extractor" : ""}
+                    <PixelMark mode={document.status === "ready" ? "done" : document.status === "failed" ? "error" : "extract"} size={14} />
+                    {showing === document.id ? "Hide the steps" : "How it was read"}
+                    {document.used_recipe ? " · saved recipe" : document.used_fallback ? " · basic reader" : ""}
                   </button>
                 )}
                 {document.status === "failed" && (

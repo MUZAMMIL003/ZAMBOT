@@ -319,16 +319,24 @@ src/
   lib/     api.ts · demo.ts · types.ts · providers.tsx (auth, legacy theme) ·
            chats-context.tsx (chats, deleteChat, deleteAllChats, openSidebar) · utils.ts ·
            markdown.ts (line-based answer parser: headings, `-`/`*`/`•`/numbered lists, pipe
-           tables with or without a separator, quotes, code; stray citation cells join the row)
+           tables with or without a separator, quotes, code; stray citation cells join the row) ·
+           pipeline.ts (the six reading phases and the answer steps, and how to say them in words)
   routes/  Landing · AppShell (Sidebar + page) · Start · Conversation · Files · Settings
   components/chat/
            Sidebar · Composer · FileDropZone · BriefCard · Message (RichText, tables,
            CitationPill + SourcePopover, SourceCards, ClosestPassage, RelatedQuestions,
-           AnswerFooter, Thinking) · SandboxBlock · DocumentPanel (spreadsheet sheets render as a
+           AnswerFooter) · SandboxBlock · DocumentPanel (spreadsheet sheets render as a
            table: sticky header, row numbers, row filter, 200 rows at a time, quoted row highlighted)
+           ReadingPipeline (Upload → Inspect → Extract → Split → Map the meaning → File it away:
+           six-part bar, each step's facts, timings and the sandbox code; shown while reading,
+           under the brief ("How it was read") and in Sources) ·
+           AnswerSteps (LiveAnswerSteps while answering; AnswerTrace "Found in N steps" on
+           every answer, saved with the message)
            SideRail (DEAD, older)
   components/ui/
-           Icon · AnimatedLogo · PageHeader (+ MenuButton) · List · Skeleton · Orb · Aurora
+           Icon · AnimatedLogo · PageHeader (+ MenuButton) · List · Skeleton · Aurora ·
+           PixelMark (7×7 pixel mark in the wordmark's style that acts out each step:
+           inspect scan, extract typing, chunk split, embed wave, index filing, think, done, error)
            PromoCard, Button, ThemeToggle, Logo (DEAD, older)
   components/upload/ Dropzone, FileStatus (DEAD, older)
 _superseded/   Home, NewChat, NavigationRail, HistoryRail, TabBar - replaced in this
