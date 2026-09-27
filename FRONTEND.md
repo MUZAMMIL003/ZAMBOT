@@ -106,7 +106,7 @@ OneDrive (`EINVAL readlink`).
 
 | Path | Screen |
 |---|---|
-| `/` | `Landing`: the pixel wordmark types itself out, then *Launch Zambot* |
+| `/` | `Landing`: a dark poster page (see *Landing page* below); *Launch Zambot* opens the app |
 | `/chats`, `/chats/new` | `Start`: the composer-first start screen (replaces the old Home + New Chat) |
 | `/chats/:chatId` | `Conversation` |
 | `/chats/files` | `Files`: every document; tapping one opens it in its chat's panel (`state.openDocument`) |
@@ -185,7 +185,27 @@ The font is Helvetica Neue. `.mesh-bg` is the pastel ground: lavender
 | Progress bars | `text/55` charcoal |
 | Highlight | `#FFF1A8` with an inset `#E8C547` edge; pop-up quotes use `#FFF8DC` |
 | Menus and pop-ups | solid white `rounded-2xl shadow-lifted` (a blur nested inside a blur fails in Chrome) |
-| Orb / Aurora | pastel, for the empty chat, reading state and Landing |
+| Orb / Aurora | pastel, for the empty chat and reading state (Orb itself is retired to `_superseded/`) |
+
+**Landing page** (`routes/Landing.tsx` + `components/landing/`). It is deliberately
+unlike the app and unlike template AI sites. The inspiration was e2b.dev: black ground,
+pixel noise, bracket labels, condensed capitals, square buttons, hairline grids, and a
+live product instead of illustrations.
+
+| Part | What it is |
+|---|---|
+| Colours | ink `#0B0B0A`, text `#EFEEE9`, muted `#A9A8A2` / `#8E8D87`, dim `#5E5D58`; the one accent is highlighter yellow `#F2D544` (the app's quote highlight) |
+| Type | `font-poster` = Archivo at `[font-stretch:70%]` for headlines; `font-label` = IBM Plex Mono for labels (Google Fonts in `index.html`) |
+| `PixelField` | canvas of breathing pixels from value noise, a sweep every 7.2s and yellow "highlighter" runs; `hero` / `floor` layouts; pauses off-screen |
+| `HeroDemo` | a 17s loop of the real product: read (six steps + page scan) → ask (streamed answer, citation pop-up) → calc (pandas in the sandbox) |
+| `ReadingTrack` | the six reading steps as a track with a travelling yellow line (across on desktop, down the left on phones) |
+| `FeatureCells` | six cells, each a tiny working demo: citation, spreadsheet maths, steps, ask-while-reading, follow-up, sources |
+| `PixelNumber` | 6 / 768 / 3 / 100 in the wordmark's 5×7 pixel digits, counting up in view |
+| Other | ticker of file types, scroll-linked ASK · CITE · CHECK band, CTA box with yellow corner marks |
+
+Rules learnt: give grid columns `minmax(0,1fr)` or the demos push phone layouts sideways;
+`useInView` margins must be vertical only (`"-80px 0px -80px 0px"`), otherwise the left
+column on a phone never counts as in view.
 
 **Icons:** **Lucide** (`lucide-react`, ISC licence) through `components/ui/Icon.tsx`. Choose them by what the control does:
 
@@ -322,6 +342,9 @@ src/
            tables with or without a separator, quotes, code; stray citation cells join the row) ·
            pipeline.ts (the six reading phases and the answer steps, and how to say them in words)
   routes/  Landing · AppShell (Sidebar + page) · Start · Conversation · Files · Settings
+  components/landing/
+           PixelField · HeroDemo · ReadingTrack · FeatureCells · PixelNumber
+  lib/useLoop.ts  rAF loop clock for the landing demos (+ typed() for typing text)
   components/chat/
            Sidebar · Composer · FileDropZone · BriefCard · Message (RichText, tables,
            CitationPill + SourcePopover, SourceCards, ClosestPassage, RelatedQuestions,

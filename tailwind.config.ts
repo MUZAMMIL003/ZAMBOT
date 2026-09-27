@@ -52,6 +52,9 @@ const config: Config = {
       fontFamily: {
         sans: ["Helvetica Neue", "Helvetica", "Arial", "system-ui", "sans-serif"],
         mono: ["ui-monospace", "SFMono-Regular", "monospace"],
+        // Landing page only: condensed poster headlines and technical labels.
+        poster: ["Archivo", "Helvetica Neue", "Arial", "sans-serif"],
+        label: ["IBM Plex Mono", "ui-monospace", "SFMono-Regular", "monospace"],
       },
       fontSize: {
         hero: ["clamp(2rem, 8.5vw, 3.75rem)", { lineHeight: "1.1", letterSpacing: "-0.03em" }],

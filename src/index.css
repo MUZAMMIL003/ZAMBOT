@@ -349,3 +349,13 @@
     transform: rotate(360deg);
   }
 }
+
+/* Landing: the ticker of file types, looping seamlessly (two copies, half-way shift). */
+.landing-ticker {
+  animation: landing-ticker 48s linear infinite;
+}
+@keyframes landing-ticker {
+  to {
+    transform: translateX(-50%);
+  }
+}
