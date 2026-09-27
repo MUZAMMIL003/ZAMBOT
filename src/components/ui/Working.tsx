@@ -19,7 +19,44 @@ export type WorkState = "working" | "done" | "error" | "waiting";
 
 const EASE = [0.22, 1, 0.36, 1] as const;
 const R = 9;
-const CIRCUMFERENCE = 2 * Math.PI * R;
+const RAYS = 8;
+
+/**
+ * Eight rounded rays around a small core. Each ray grows and shrinks a moment
+ * after its neighbour, so a pulse keeps travelling round the mark while it
+ * slowly turns: it reads as "busy thinking", not as a progress bar. Pure CSS
+ * (see .spark in index.css), so it keeps moving even when the browser asks
+ * for reduced motion - a loading mark is information, not decoration.
+ */
+function SparkRays() {
+  return (
+    <g className="spark-spin">
+      {Array.from({ length: RAYS }, (_, i) => (
+        <g key={i} transform={`rotate(${(360 / RAYS) * i} 12 12)`}>
+          <line x1="12" y1="8.4" x2="12" y2="2.4" className="spark-ray" style={{ animationDelay: `${(-1.12 * i) / RAYS}s` }} />
+        </g>
+      ))}
+      <circle cx="12" cy="12" r="1.9" className="spark-core" />
+    </g>
+  );
+}
+
+/** The spark on its own, for places that only ever show "working". */
+export function Spark({ size = 20, className, label }: { size?: number; className?: string; label?: string }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      width={size}
+      height={size}
+      role={label ? "img" : undefined}
+      aria-label={label}
+      aria-hidden={label ? undefined : true}
+      className={cn("spark motion-essential shrink-0 overflow-visible text-[rgb(var(--text))]", className)}
+    >
+      <SparkRays />
+    </svg>
+  );
+}
 
 export function Working({
   state = "working",
@@ -41,34 +78,12 @@ export function Working({
       role={label ? "img" : undefined}
       aria-label={label}
       aria-hidden={label ? undefined : true}
-      className={cn("shrink-0 overflow-visible text-[rgb(var(--text))]", className)}
+      className={cn("spark motion-essential shrink-0 overflow-visible text-[rgb(var(--text))]", className)}
     >
       <AnimatePresence mode="wait" initial={false}>
         {state === "working" && (
-          <motion.g key="working" initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.8 }} style={{ transformOrigin: "12px 12px" }}>
-            <circle cx="12" cy="12" r={R} fill="none" stroke="currentColor" strokeOpacity="0.13" strokeWidth="2" />
-            <motion.circle
-              cx="12"
-              cy="12"
-              r={R}
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeDasharray={`${CIRCUMFERENCE * 0.28} ${CIRCUMFERENCE}`}
-              animate={still ? undefined : { rotate: 360, strokeDasharray: [`${CIRCUMFERENCE * 0.12} ${CIRCUMFERENCE}`, `${CIRCUMFERENCE * 0.42} ${CIRCUMFERENCE}`, `${CIRCUMFERENCE * 0.12} ${CIRCUMFERENCE}`] }}
-              transition={{ rotate: { duration: 1.1, repeat: Infinity, ease: "linear" }, strokeDasharray: { duration: 2.2, repeat: Infinity, ease: "easeInOut" } }}
-              style={{ transformOrigin: "12px 12px" }}
-            />
-            <motion.circle
-              cx="12"
-              cy="12"
-              r="2.4"
-              fill="currentColor"
-              animate={still ? undefined : { scale: [0.55, 1, 0.55], opacity: [0.35, 1, 0.35] }}
-              transition={{ duration: 1.6, repeat: Infinity, ease: "easeInOut" }}
-              style={{ transformOrigin: "12px 12px" }}
-            />
+          <motion.g key="working" initial={{ opacity: 0, scale: 0.7 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.7 }} style={{ transformOrigin: "12px 12px" }}>
+            <SparkRays />
           </motion.g>
         )}
         {state === "done" && (

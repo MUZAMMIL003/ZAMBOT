@@ -28,7 +28,7 @@ import { createPortal } from "react-dom";
 
 import { FileTypeIcon, Icon, type IconName } from "@/components/ui/Icon";
 import type { Source, SandboxRun, TraceStep } from "@/lib/types";
-import { cellText, parseInline, parseMarkdown, toPlainText, type InlineToken } from "@/lib/markdown";
+import { cellText, cleanAnswer, parseInline, parseMarkdown, toPlainText, type InlineToken } from "@/lib/markdown";
 import { cn } from "@/lib/utils";
 import { AnswerTrace } from "./AnswerSteps";
 import { SandboxBlock } from "./SandboxBlock";
@@ -54,7 +54,7 @@ export interface DisplayMessage {
 type OpenSource = (source: Source) => void;
 
 const extensionOf = (name: string) => name.split(".").pop()?.toLowerCase() ?? "";
-const plainText = (text: string) => toPlainText(text);
+const plainText = (text: string) => toPlainText(cleanAnswer(text));
 
 // ------------------------------------------------------------------ text
 function Inline({
@@ -140,7 +140,7 @@ function RichText({
   sources: Source[];
   onOpenSource: OpenSource;
 }) {
-  const blocks = useMemo(() => parseMarkdown(text), [text]);
+  const blocks = useMemo(() => parseMarkdown(cleanAnswer(text)), [text]);
   const inline = (value: string) => <InlineText text={value} sources={sources} onOpenSource={onOpenSource} />;
 
   return (
@@ -631,8 +631,13 @@ function ActionButton({
 }
 
 /** Verification state. Never colour-only - each state carries an icon + word. */
+/**
+ * Shown only when every claim was matched to its passage. When the checker
+ * is unsure the answer stays clean; what it could not match is listed in the
+ * "Checked it against the source" step instead.
+ */
 function VerifiedBadge({ verified, note }: { verified: boolean | null; note?: string | null }) {
-  if (verified == null) return null;
+  if (verified !== true) return null;
   return (
     <span
       title={

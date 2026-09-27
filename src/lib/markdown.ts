@@ -256,3 +256,14 @@ export function toPlainText(source: string): string {
 
 /** A table cell as plain text, for CSV and clipboard. */
 export const cellText = (cell: string) => toPlainText(cell).trim();
+
+/**
+ * Answer text as it should be shown: without the "could not be verified" line
+ * older answers carried, and without raw [c:1] markers a model sometimes left
+ * unconverted (the numbered citations stay).
+ */
+export function cleanAnswer(source: string): string {
+  return source
+    .replace(/\s*Some parts of this answer could not be verified against your documents\.\s*$/, "")
+    .replace(/[ \t]*[[(]\s*c\s*:\s*[^\][()\n]{1,40}[\])]/g, "");
+}

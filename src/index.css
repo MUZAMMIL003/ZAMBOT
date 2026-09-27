@@ -270,9 +270,9 @@
   html {
     scroll-behavior: auto;
   }
-  *,
-  *::before,
-  *::after {
+  *:not(.motion-essential):not(.motion-essential *):not(.text-shimmer),
+  *:not(.motion-essential):not(.motion-essential *):not(.text-shimmer)::before,
+  *:not(.motion-essential):not(.motion-essential *):not(.text-shimmer)::after {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
@@ -283,11 +283,11 @@
 .text-shimmer {
   background: linear-gradient(
     90deg,
-    rgb(var(--text) / 0.58) 0%,
-    rgb(var(--text) / 0.58) 38%,
+    rgb(var(--text) / 0.7) 0%,
+    rgb(var(--text) / 0.7) 38%,
     rgb(var(--text)) 50%,
-    rgb(var(--text) / 0.58) 62%,
-    rgb(var(--text) / 0.58) 100%
+    rgb(var(--text) / 0.7) 62%,
+    rgb(var(--text) / 0.7) 100%
   );
   background-size: 240% 100%;
   -webkit-background-clip: text;
@@ -303,10 +303,49 @@
     background-position: -120% 0;
   }
 }
-@media (prefers-reduced-motion: reduce) {
-  .text-shimmer {
-    animation: none;
-    color: rgb(var(--text) / 0.75);
-    background: none;
+
+/* The spark: eight rays pulsing in a wave while the mark slowly turns. */
+.spark .spark-ray {
+  stroke: currentColor;
+  stroke-width: 2.4;
+  stroke-linecap: round;
+  transform-box: view-box;
+  transform-origin: 12px 12px;
+  animation: spark-ray 1.12s cubic-bezier(0.45, 0, 0.55, 1) infinite;
+}
+.spark .spark-core {
+  fill: currentColor;
+  transform-box: view-box;
+  transform-origin: 12px 12px;
+  animation: spark-core 1.12s ease-in-out infinite;
+}
+.spark .spark-spin {
+  transform-box: view-box;
+  transform-origin: 12px 12px;
+  animation: spark-spin 6s linear infinite;
+}
+@keyframes spark-ray {
+  0%,
+  100% {
+    transform: scale(0.38);
+    opacity: 0.28;
+  }
+  45% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+@keyframes spark-core {
+  0%,
+  100% {
+    transform: scale(0.8);
+  }
+  50% {
+    transform: scale(1.15);
+  }
+}
+@keyframes spark-spin {
+  to {
+    transform: rotate(360deg);
   }
 }
