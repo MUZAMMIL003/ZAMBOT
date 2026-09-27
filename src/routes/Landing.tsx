@@ -1,36 +1,38 @@
 /**
  * Landing. No login: "Launch Zambot" opens a session and goes straight in.
  *
- * Ink-black and paper-white, one highlighter-yellow accent - the colour the
- * app marks quoted passages with. Headlines are condensed posters, details
- * are monospace, edges are square and sections sit on hairline grids.
- * Everything that moves shows the real product doing its real job:
+ * Built from the app's own design, turned up for a first impression: the
+ * same pastel ground and frosted-white glass, black Helvetica, the pixel
+ * wordmark, the charcoal send button and the yellow the app marks quoted
+ * passages with. Everything that moves shows the real product at work:
  *
- *   hero      the pixel wordmark types itself; a live window reads a file,
- *             answers with a cited, highlighted page and sums a spreadsheet,
- *             over a field of pixels swept by a reading line
- *   ticker    the kinds of files it reads
- *   how       the six reading steps as a travelling track
- *   features  six cells, each a working miniature of one behaviour
- *   numbers   honest figures, set in the wordmark's pixel grid
- *   band      a giant word band that slides as you scroll
- *   start     the call to action
+ *   hero      the wordmark types itself; a live window reads a file, answers
+ *             with a cited, highlighted page and adds up a spreadsheet, over
+ *             a page of pixel text that gets highlighted as you watch
+ *   ticker    the kinds of files people bring
+ *   how       the six reading steps
+ *   features  six cards, each a working miniature of one behaviour
+ *   numbers   honest figures, in the wordmark's pixel digits
+ *   band      ask · cite · check, sliding as you scroll
+ *   start     ends where the app begins: "What are we reading today?"
  */
-import { motion, useScroll, useTransform, type Variants } from "framer-motion";
+import { motion, useInView, useScroll, useTransform, type Variants } from "framer-motion";
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
 
 import { FeatureCells } from "@/components/landing/FeatureCells";
 import { HeroDemo } from "@/components/landing/HeroDemo";
-import { PixelField } from "@/components/landing/PixelField";
+import { PageField } from "@/components/landing/PageField";
 import { PixelNumber } from "@/components/landing/PixelNumber";
 import { ReadingTrack } from "@/components/landing/ReadingTrack";
 import { AnimatedLogo } from "@/components/ui/AnimatedLogo";
+import { Aurora } from "@/components/ui/Aurora";
+import { Icon } from "@/components/ui/Icon";
+import { ZMark } from "@/components/ui/Working";
 import { useAuth } from "@/lib/providers";
 import { cn } from "@/lib/utils";
 
 const EASE = [0.22, 1, 0.36, 1] as const;
-const INK = "#0B0B0A";
 
 const rise: Variants = {
   hidden: { opacity: 0, y: 22 },
@@ -49,7 +51,7 @@ const READS = [
   "Leases",
   "Syllabi",
   "Tender documents",
-  "Minutes of meetings",
+  "Meeting minutes",
 ];
 
 const NUMBERS = [
@@ -60,24 +62,8 @@ const NUMBERS = [
 ];
 
 // ------------------------------------------------------------------ parts
-function Tag({ children, className }: { children: ReactNode; className?: string }) {
-  return (
-    <p className={cn("font-label text-[12px] uppercase tracking-[0.16em] text-[#EFEEE9]", className)}>
-      <span className="text-[#8E8D87]">[</span> {children} <span className="text-[#8E8D87]">]</span>
-    </p>
-  );
-}
-
-function Corners() {
-  return (
-    <>
-      {["left-[-1px] top-[-1px] border-l-2 border-t-2", "right-[-1px] top-[-1px] border-r-2 border-t-2", "bottom-[-1px] left-[-1px] border-b-2 border-l-2", "bottom-[-1px] right-[-1px] border-b-2 border-r-2"].map(
-        (place) => (
-          <span key={place} aria-hidden className={cn("absolute h-3 w-3 border-[#F2D544]", place)} />
-        ),
-      )}
-    </>
-  );
+function Label({ children, className }: { children: ReactNode; className?: string }) {
+  return <p className={cn("text-[12px] font-medium uppercase tracking-wider text-black/45", className)}>{children}</p>;
 }
 
 function Launch({
@@ -97,79 +83,104 @@ function Launch({
       onClick={onClick}
       disabled={working}
       className={cn(
-        "group relative inline-flex items-center justify-center gap-3 overflow-hidden bg-[#F2D544] font-label font-semibold uppercase tracking-[0.1em] text-black transition-colors disabled:cursor-wait",
-        compact ? "h-9 px-4 text-[11.5px]" : "h-[52px] px-7 text-[13px]",
+        "group inline-flex items-center justify-center gap-3 rounded-full bg-[#2B2B30] font-medium text-white shadow-[0_12px_30px_-12px_rgba(0,0,0,0.5)] transition-colors hover:bg-[#1F1F23] active:scale-[0.98] disabled:cursor-wait",
+        compact ? "h-10 pl-4 pr-1.5 text-[14px]" : "h-[52px] pl-6 pr-2 text-[15.5px]",
         className,
       )}
     >
-      <span aria-hidden className="absolute inset-0 origin-left scale-x-0 bg-[#EFEEE9] transition-transform duration-300 ease-out group-hover:scale-x-100" />
-      <span className="relative">{working ? "Opening…" : compact ? "Launch" : "Launch Zambot"}</span>
-      {!working && (
-        <span aria-hidden className="relative transition-transform duration-300 group-hover:translate-x-1">
-          →
-        </span>
-      )}
+      <span>{working ? "Opening…" : compact ? "Launch" : "Launch Zambot"}</span>
+      <span
+        className={cn(
+          "grid place-items-center rounded-full bg-white text-black transition-transform duration-300 group-hover:translate-x-0.5",
+          compact ? "h-7 w-7" : "h-9 w-9",
+        )}
+      >
+        {working ? <ZMark size={compact ? 14 : 17} /> : <Icon name="arrowRight" size={compact ? 15 : 17} strokeWidth={2} />}
+      </span>
     </button>
   );
 }
 
-function Ghost({ href, children }: { href: string; children: ReactNode }) {
+function Heading({ label, title, muted, children }: { label: string; title: string; muted: string; children: ReactNode }) {
   return (
-    <a
-      href={href}
-      className="inline-flex h-[52px] items-center justify-center gap-3 border border-white/25 px-7 font-label text-[13px] font-medium uppercase tracking-[0.1em] text-[#EFEEE9] transition-colors hover:border-white/60 hover:bg-white/5"
-    >
-      {children}
-    </a>
+    <div className="grid grid-cols-[minmax(0,1fr)] gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,400px)] lg:items-end">
+      <motion.div variants={rise} initial="hidden" whileInView="shown" viewport={{ once: true, margin: "-80px 0px -80px 0px" }}>
+        <Label>{label}</Label>
+        <h2 className="mt-3 text-[clamp(36px,5vw,64px)] font-semibold leading-[1.02] tracking-[-0.04em]">
+          {title}
+          <br />
+          <span className="text-black/35">{muted}</span>
+        </h2>
+      </motion.div>
+      <motion.p
+        variants={rise}
+        initial="hidden"
+        whileInView="shown"
+        viewport={{ once: true, margin: "-80px 0px -80px 0px" }}
+        custom={0.1}
+        className="text-[16.5px] leading-relaxed text-black/60"
+      >
+        {children}
+      </motion.p>
+    </div>
   );
 }
 
-function Heading({ light, bold, className }: { light: string; bold: ReactNode; className?: string }) {
+/** The app's quote highlight, swept across a word. */
+function Highlight({ children, delay }: { children: ReactNode; delay: number }) {
   return (
-    <motion.h2
-      variants={rise}
-      initial="hidden"
-      whileInView="shown"
-      viewport={{ once: true, margin: "-80px 0px -80px 0px" }}
-      className={cn(
-        "mt-5 font-poster text-[clamp(40px,6.2vw,84px)] uppercase leading-[0.92] tracking-[-0.012em] [font-stretch:72%]",
-        className,
-      )}
-    >
-      <span className="block font-normal">{light}</span>
-      <span className="block font-extrabold">{bold}</span>
-    </motion.h2>
+    <span className="relative inline-block">
+      <motion.span
+        aria-hidden
+        className="absolute -inset-x-[0.07em] bottom-[0.02em] top-[0.14em] origin-left rounded-[0.08em] bg-[#FFF1A8] shadow-[inset_0.06em_0_0_#E8C547]"
+        initial={{ scaleX: 0 }}
+        animate={{ scaleX: 1 }}
+        transition={{ duration: 0.75, delay, ease: EASE }}
+      />
+      <span className="relative">{children}</span>
+    </span>
   );
 }
 
 function ScrollBand() {
   const ref = useRef<HTMLElement>(null);
   const { scrollYProgress } = useScroll({ target: ref, offset: ["start end", "end start"] });
-  const x = useTransform(scrollYProgress, [0, 1], ["2%", "-42%"]);
+  const x = useTransform(scrollYProgress, [0, 1], ["4%", "-40%"]);
   const words = ["Ask", "Cite", "Check"];
   return (
-    <section ref={ref} aria-hidden className="overflow-hidden border-y border-white/10 py-6 sm:py-8">
+    <section ref={ref} aria-hidden className="overflow-hidden py-10 sm:py-14">
       <motion.p
         style={{ x }}
-        className="whitespace-nowrap font-poster text-[clamp(84px,17vw,240px)] font-extrabold uppercase leading-[0.84] tracking-[-0.02em] [font-stretch:68%]"
+        className="whitespace-nowrap text-[clamp(76px,15vw,210px)] font-semibold leading-[1] tracking-[-0.05em]"
       >
         {Array.from({ length: 4 }, (_, round) =>
           words.map((word, i) => (
             <span key={`${round}-${word}`}>
-              <span
-                className={cn(
-                  i === 1 && "text-[#F2D544]",
-                  i === 2 && "text-transparent [-webkit-text-stroke:2px_#EFEEE9]",
-                )}
-              >
-                {word}
-              </span>
-              <span className="mx-[0.18em] inline-block h-[0.14em] w-[0.14em] -translate-y-[0.28em] bg-[#EFEEE9]/60" />
+              {i === 1 ? (
+                <span className="relative inline-block">
+                  <span className="absolute -inset-x-[0.05em] bottom-[0.08em] top-[0.3em] rounded-[0.05em] bg-[#FFF1A8] shadow-[inset_0.045em_0_0_#E8C547]" />
+                  <span className="relative">{word}</span>
+                </span>
+              ) : (
+                <span className={cn(i === 2 && "text-black/[0.13]")}>{word}</span>
+              )}
+              <span className="mx-[0.22em] inline-block h-[0.13em] w-[0.13em] -translate-y-[0.3em] rounded-[0.02em] bg-black" />
             </span>
           )),
         )}
       </motion.p>
     </section>
+  );
+}
+
+/** The start screen's logo, typing itself out when it scrolls into view. */
+function TypingLogo({ className }: { className?: string }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const seen = useInView(ref, { once: true, margin: "-80px 0px -80px 0px" });
+  return (
+    <div ref={ref} className={className}>
+      {seen ? <AnimatedLogo className="w-full text-black" /> : <div className="aspect-[35/5] w-full" />}
+    </div>
   );
 }
 
@@ -181,22 +192,11 @@ export function Landing() {
   const [error, setError] = useState<string | null>(null);
   const [scrolled, setScrolled] = useState(false);
 
-  // The page is ink-black edge to edge, including the overscroll area.
   useEffect(() => {
-    const root = document.documentElement;
-    const previous = root.style.backgroundColor;
-    root.style.backgroundColor = INK;
-    const meta = document.querySelector('meta[name="theme-color"]');
-    const previousTheme = meta?.getAttribute("content");
-    meta?.setAttribute("content", INK);
-    const onScroll = () => setScrolled(window.scrollY > 300);
+    const onScroll = () => setScrolled(window.scrollY > 80);
     onScroll();
     window.addEventListener("scroll", onScroll, { passive: true });
-    return () => {
-      root.style.backgroundColor = previous;
-      if (previousTheme) meta?.setAttribute("content", previousTheme);
-      window.removeEventListener("scroll", onScroll);
-    };
+    return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
   const go = useCallback(async () => {
@@ -213,27 +213,38 @@ export function Landing() {
   }, [working, enterApp, navigate]);
 
   return (
-    <div id="top" className="motion-essential min-h-dvh bg-[#0B0B0A] font-sans text-[#EFEEE9] antialiased selection:bg-[#F2D544] selection:text-black">
+    <div id="top" className="motion-essential relative min-h-dvh text-black antialiased">
+      <div aria-hidden className="mesh-bg pointer-events-none fixed inset-0 -z-10">
+        <Aurora />
+      </div>
+
       {/* ------------------------------------------------------------ nav */}
-      <header className="sticky top-0 z-50 border-b border-white/10 bg-[#0B0B0A]/85 backdrop-blur-md">
-        <div className="mx-auto flex h-14 max-w-[1320px] items-center gap-8 px-5 sm:px-8">
-          <a href="#top" aria-label="Zambot, back to top" className="flex min-w-[96px] shrink-0 items-center">
-            {scrolled ? (
-              <AnimatedLogo className="w-[96px] text-[#EFEEE9]" />
-            ) : (
-              <span className="whitespace-nowrap font-label text-[11.5px] uppercase tracking-[0.16em] text-[#8E8D87]">zambot / v1</span>
-            )}
+      <header className="fixed inset-x-0 top-0 z-50 px-3 pt-3 sm:px-5">
+        <div
+          className={cn(
+            "mx-auto flex h-14 max-w-[1240px] items-center gap-6 rounded-2xl border pl-4 pr-2 transition-all duration-300 sm:pl-5",
+            scrolled
+              ? "border-white/70 bg-white/65 shadow-[0_10px_30px_-14px_rgba(60,40,110,0.3)] backdrop-blur-xl"
+              : "border-transparent bg-transparent",
+          )}
+        >
+          <a
+            href="#top"
+            aria-label="Zambot, back to top"
+            className={cn("shrink-0 transition-opacity duration-300", scrolled ? "opacity-100" : "pointer-events-none opacity-0")}
+          >
+            <img src="/logo.svg" alt="ZAMBOT" className="h-[17px] w-auto" />
           </a>
-          <nav className="hidden items-center gap-7 font-label text-[12px] uppercase tracking-[0.12em] text-[#A9A8A2] md:flex">
-            <a href="#how" className="transition-colors hover:text-[#EFEEE9]">
-              How it reads
-            </a>
-            <a href="#features" className="transition-colors hover:text-[#EFEEE9]">
-              What it does
-            </a>
-            <a href="#numbers" className="transition-colors hover:text-[#EFEEE9]">
-              Under the hood
-            </a>
+          <nav className={cn("hidden items-center gap-1 text-[14px] font-medium text-black/60 transition-transform duration-300 md:flex", !scrolled && "-translate-x-[143px]")}>
+            {[
+              ["#how", "How it reads"],
+              ["#features", "What it does"],
+              ["#numbers", "Under the hood"],
+            ].map(([href, label]) => (
+              <a key={href} href={href} className="rounded-full px-3 py-1.5 transition-colors hover:bg-white/60 hover:text-black">
+                {label}
+              </a>
+            ))}
           </nav>
           <div className="ml-auto">
             <Launch onClick={() => void go()} working={working} compact />
@@ -243,51 +254,34 @@ export function Landing() {
 
       <main>
         {/* ----------------------------------------------------------- hero */}
-        <section className="relative overflow-hidden border-b border-white/10">
-          <div className="absolute inset-0 [mask-image:linear-gradient(180deg,black_0%,rgba(0,0,0,0.55)_45%,transparent_78%)] lg:[mask-image:linear-gradient(90deg,transparent_18%,black_62%)]">
-            <PixelField layout="hero" cell={10} />
+        <section className="relative overflow-hidden">
+          <div className="absolute inset-0">
+            <PageField layout="hero" />
           </div>
-          <div className="relative mx-auto grid max-w-[1320px] grid-cols-[minmax(0,1fr)] gap-14 px-5 pb-16 pt-12 sm:px-8 sm:pt-16 lg:min-h-[calc(100dvh-56px)] lg:grid-cols-[minmax(0,1fr)_minmax(0,560px)] lg:items-center lg:gap-16 lg:pb-20 lg:pt-12">
+          <div className="relative mx-auto grid max-w-[1240px] grid-cols-[minmax(0,1fr)] gap-12 px-5 pb-16 pt-28 sm:px-8 sm:pt-32 lg:min-h-[100dvh] lg:grid-cols-[minmax(0,1fr)_minmax(0,540px)] lg:items-center lg:gap-14 lg:pb-20 lg:pt-24">
             <div>
-              <AnimatedLogo className="w-[min(74vw,380px)] text-[#EFEEE9]" />
-              <motion.div variants={rise} initial="hidden" animate="shown" custom={1.1}>
-                <Tag className="mt-10 sm:mt-12">Document intelligence</Tag>
+              <AnimatedLogo className="w-[min(62vw,290px)] text-black" />
+              <motion.div variants={rise} initial="hidden" animate="shown" custom={0.9}>
+                <Label className="mt-10">Chat with your documents</Label>
               </motion.div>
               <motion.h1
                 variants={rise}
                 initial="hidden"
                 animate="shown"
-                custom={1.25}
-                className="mt-5 font-poster text-[clamp(48px,7.6vw,100px)] uppercase leading-[0.9] tracking-[-0.015em] [font-stretch:70%]"
+                custom={1.0}
+                className="mt-4 text-[clamp(46px,6.6vw,92px)] font-semibold leading-[0.98] tracking-[-0.045em]"
               >
-                <span className="block font-extrabold">Ask your files.</span>
-                <span className="block font-normal">
-                  Get the{" "}
-                  <span className="relative ml-[0.1em] inline-block font-extrabold">
-                    <motion.span
-                      aria-hidden
-                      className="absolute -inset-x-[0.08em] bottom-[0.02em] top-[0.1em] origin-left bg-[#F2D544]"
-                      initial={{ scaleX: 0 }}
-                      animate={{ scaleX: 1 }}
-                      transition={{ duration: 0.7, delay: 2.1, ease: EASE }}
-                    />
-                    <motion.span
-                      className="relative"
-                      initial={{ color: "#EFEEE9" }}
-                      animate={{ color: "#000000" }}
-                      transition={{ duration: 0.3, delay: 2.3 }}
-                    >
-                      page.
-                    </motion.span>
-                  </span>
-                </span>
+                Ask your files.
+                <br />
+                <span className="text-black/35">Get the </span>
+                <Highlight delay={1.9}>page.</Highlight>
               </motion.h1>
               <motion.p
                 variants={rise}
                 initial="hidden"
                 animate="shown"
-                custom={1.45}
-                className="mt-7 max-w-[34rem] text-[17px] leading-[1.6] text-[#BDBCB6] sm:text-[18px]"
+                custom={1.15}
+                className="mt-6 max-w-[33rem] text-[17px] leading-[1.6] text-black/60 sm:text-[18px]"
               >
                 Zambot reads your PDFs, Word files and spreadsheets in a sealed sandbox, then answers in plain words -
                 every claim pinned to the passage and page it came from.
@@ -296,14 +290,20 @@ export function Landing() {
                 variants={rise}
                 initial="hidden"
                 animate="shown"
-                custom={1.6}
-                className="mt-9 flex flex-col gap-3 sm:flex-row"
+                custom={1.3}
+                className="mt-8 flex flex-col gap-3 sm:flex-row sm:items-center"
               >
                 <Launch onClick={() => void go()} working={working} />
-                <Ghost href="#how">See how it reads ↓</Ghost>
+                <a
+                  href="#how"
+                  className="inline-flex h-[52px] items-center justify-center gap-2 rounded-full border border-white/70 bg-white/55 px-6 text-[15.5px] font-medium shadow-sm backdrop-blur-md transition-colors hover:bg-white/85"
+                >
+                  See how it reads
+                  <Icon name="arrowRight" size={16} className="rotate-90" />
+                </a>
               </motion.div>
               {error && (
-                <p role="alert" className="mt-4 font-label text-[12px] text-[#FF8A7A]">
+                <p role="alert" className="mt-4 text-[13px] text-danger">
                   {error}
                 </p>
               )}
@@ -311,116 +311,86 @@ export function Landing() {
                 variants={rise}
                 initial="hidden"
                 animate="shown"
-                custom={1.75}
-                className="mt-7 flex flex-wrap items-center gap-x-3 gap-y-1 font-label text-[11px] uppercase tracking-[0.16em] text-[#8E8D87]"
+                custom={1.45}
+                className="mt-6 text-[13.5px] text-black/45"
               >
-                <span className="h-2 w-2 bg-[#F2D544]" />
-                Free <span className="text-[#5E5D58]">/</span> No sign-up <span className="text-[#5E5D58]">/</span> PDF · DOCX · XLSX
+                Free · No sign-up · PDF, Word and Excel
               </motion.p>
             </div>
-            <motion.div variants={rise} initial="hidden" animate="shown" custom={0.6}>
+            <motion.div variants={rise} initial="hidden" animate="shown" custom={0.5}>
               <HeroDemo />
             </motion.div>
           </div>
         </section>
 
         {/* --------------------------------------------------------- ticker */}
-        <section aria-label="What Zambot reads" className="flex items-center overflow-hidden border-b border-white/10">
-          <span className="relative z-10 shrink-0 border-r border-white/10 bg-[#0B0B0A] px-5 py-4 font-label text-[11.5px] uppercase tracking-[0.16em] text-[#F2D544] sm:px-8">
-            Reads →
+        <section aria-label="What people bring to Zambot" className="flex items-center border-y border-white/60 bg-white/30 backdrop-blur-sm">
+          <span className="shrink-0 border-r border-white/60 px-5 py-4 text-[12px] font-medium uppercase tracking-wider text-black/45 sm:px-8">
+            People bring
           </span>
-          <div className="landing-ticker flex shrink-0">
-            {[0, 1].map((copy) => (
-              <ul key={copy} aria-hidden={copy === 1} className="flex shrink-0 items-center">
-                {READS.map((item) => (
-                  <li key={item} className="flex items-center gap-6 whitespace-nowrap pl-6 font-label text-[12px] uppercase tracking-[0.14em] text-[#A9A8A2]">
-                    {item}
-                    <span className="h-1.5 w-1.5 bg-white/25" />
-                  </li>
-                ))}
-              </ul>
-            ))}
+          <div className="min-w-0 flex-1 overflow-hidden [mask-image:linear-gradient(90deg,transparent,black_6%,black_94%,transparent)]">
+            <div className="landing-ticker flex w-max">
+              {[0, 1].map((copy) => (
+                <ul key={copy} aria-hidden={copy === 1} className="flex shrink-0 items-center">
+                  {READS.map((item) => (
+                    <li key={item} className="flex items-center gap-6 whitespace-nowrap pl-6 text-[15px] text-black/55">
+                      {item}
+                      <span className="h-1.5 w-1.5 rounded-[2px] bg-black/20" />
+                    </li>
+                  ))}
+                </ul>
+              ))}
+            </div>
           </div>
         </section>
 
         {/* ------------------------------------------------------------ how */}
-        <section id="how" className="scroll-mt-14 border-b border-white/10">
-          <div className="mx-auto max-w-[1320px] px-5 py-20 sm:px-8 lg:py-28">
-            <div className="grid grid-cols-[minmax(0,1fr)] gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,420px)] lg:items-end">
-              <div>
-                <Tag>How it reads</Tag>
-                <Heading light="Read properly." bold="Not skimmed." />
-              </div>
-              <motion.p
-                variants={rise}
-                initial="hidden"
-                whileInView="shown"
-                viewport={{ once: true }}
-                className="text-[16.5px] leading-relaxed text-[#A9A8A2]"
-              >
-                Before you ask anything, every file goes through six steps in its own sealed sandbox. Later you can open
-                any of them and see exactly what happened - down to the code that ran.
-              </motion.p>
-            </div>
-            <div className="mt-14">
+        <section id="how" className="scroll-mt-20">
+          <div className="mx-auto max-w-[1240px] px-5 py-20 sm:px-8 lg:py-28">
+            <Heading label="How it reads" title="Read properly." muted="Not skimmed.">
+              Before you ask anything, every file goes through six steps in its own sealed sandbox. Later you can open any
+              of them and see exactly what happened - down to the code that ran.
+            </Heading>
+            <div className="mt-12 lg:mt-14">
               <ReadingTrack />
             </div>
           </div>
         </section>
 
         {/* ------------------------------------------------------- features */}
-        <section id="features" className="scroll-mt-14 border-b border-white/10">
-          <div className="mx-auto max-w-[1320px] px-5 py-20 sm:px-8 lg:py-28">
-            <div className="grid grid-cols-[minmax(0,1fr)] gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,420px)] lg:items-end">
-              <div>
-                <Tag>What it does</Tag>
-                <Heading light="Answers you" bold="can check." />
-              </div>
-              <motion.p
-                variants={rise}
-                initial="hidden"
-                whileInView="shown"
-                viewport={{ once: true }}
-                className="text-[16.5px] leading-relaxed text-[#A9A8A2]"
-              >
-                Zambot only answers from what you upload. When the answer is not in your files, it says so instead of
-                making something up.
-              </motion.p>
-            </div>
-            <div className="mt-14">
+        <section id="features" className="scroll-mt-20">
+          <div className="mx-auto max-w-[1240px] px-5 pb-20 sm:px-8 lg:pb-28">
+            <Heading label="What it does" title="Answers you" muted="can check.">
+              Zambot only answers from what you upload. When the answer is not in your files, it says so instead of making
+              something up.
+            </Heading>
+            <div className="mt-12 lg:mt-14">
               <FeatureCells />
             </div>
           </div>
         </section>
 
         {/* -------------------------------------------------------- numbers */}
-        <section id="numbers" className="relative scroll-mt-14 overflow-hidden border-b border-white/10">
-          <div className="absolute inset-x-0 bottom-0 h-[200px] opacity-90 [mask-image:linear-gradient(180deg,transparent_10%,black_75%)] lg:h-full">
-            <PixelField layout="floor" cell={9} />
-          </div>
-          <div className="relative mx-auto max-w-[1320px] px-5 pb-48 pt-20 sm:px-8 lg:py-28">
-            <div className="flex items-center gap-4">
-              <span className="h-px flex-1 bg-white/10" />
-              <span className="font-label text-[12px] uppercase tracking-[0.16em] text-[#EFEEE9]">
-                <span className="text-[#F2D544]">►</span> Under the hood
-              </span>
-              <span className="h-px flex-1 bg-white/10" />
-            </div>
-            <div className="mt-16 grid grid-cols-2 gap-x-6 gap-y-14 lg:grid-cols-4">
-              {NUMBERS.map((item, index) => (
-                <motion.div
-                  key={item.label}
-                  variants={rise}
-                  initial="hidden"
-                  whileInView="shown"
-                  viewport={{ once: true, margin: "-60px 0px -60px 0px" }}
-                  custom={index * 0.08}
-                  className="flex flex-col items-start lg:items-center lg:text-center"
-                >
-                  <PixelNumber value={item.value} className="text-[clamp(64px,9vw,120px)] text-[#EFEEE9]" />
-                  <p className="mt-5 max-w-[15rem] text-[15px] leading-snug text-[#A9A8A2] sm:text-[16px]">{item.label}</p>
-                </motion.div>
-              ))}
+        <section id="numbers" className="scroll-mt-20">
+          <div className="mx-auto max-w-[1240px] px-5 sm:px-8">
+            <div className="rounded-[32px] border border-white/60 bg-white/40 px-6 py-12 shadow-sm backdrop-blur-md sm:px-10 lg:py-16">
+              <Label className="text-center">Under the hood</Label>
+              <div className="mt-10 grid grid-cols-2 gap-x-6 gap-y-12 lg:mt-12 lg:grid-cols-4 lg:divide-x lg:divide-black/[0.06]">
+                {NUMBERS.map((item, index) => (
+                  <motion.div
+                    key={item.label}
+                    variants={rise}
+                    initial="hidden"
+                    whileInView="shown"
+                    viewport={{ once: true, margin: "-60px 0px -60px 0px" }}
+                    custom={index * 0.08}
+                    className="flex flex-col items-start lg:items-center lg:px-4 lg:text-center"
+                  >
+                    <PixelNumber value={item.value} className="text-[clamp(56px,8vw,104px)] text-black" />
+                    <p className="mt-4 max-w-[14rem] text-[14.5px] leading-snug text-black/55 sm:text-[15.5px]">{item.label}</p>
+                  </motion.div>
+                ))}
+              </div>
             </div>
           </div>
         </section>
@@ -428,34 +398,50 @@ export function Landing() {
         <ScrollBand />
 
         {/* ---------------------------------------------------------- start */}
-        <section className="mx-auto max-w-[1320px] px-5 py-20 sm:px-8 lg:py-28">
-          <div className="relative border border-white/10 px-6 py-14 sm:px-12 sm:py-20">
-            <Corners />
-            <div className="grid grid-cols-[minmax(0,1fr)] gap-10 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
-              <div>
-                <Tag>Start here</Tag>
-                <Heading light="Open a file." bold="Ask anything." />
-                <p className="mt-6 max-w-[32rem] text-[16.5px] leading-relaxed text-[#A9A8A2]">
-                  Free, no sign-up. Drop in a contract, a statement or a sales sheet and ask your first question while it
-                  is still being read.
-                </p>
-              </div>
-              <Launch onClick={() => void go()} working={working} />
+        <section className="mx-auto max-w-[1240px] px-5 pb-16 sm:px-8 lg:pb-24">
+          <div className="relative overflow-hidden rounded-[32px] border border-white/60 bg-white/35 shadow-sm backdrop-blur-md">
+            <div className="absolute inset-0">
+              <PageField layout="card" />
+            </div>
+            <div className="relative flex flex-col items-center px-5 py-16 text-center sm:px-10 sm:py-24">
+              <TypingLogo className="w-[128px] sm:w-[150px]" />
+              <h2 className="mt-6 text-[clamp(30px,4.4vw,52px)] font-semibold leading-[1.05] tracking-[-0.04em]">
+                What are we reading today?
+              </h2>
+              <p className="mx-auto mt-3 max-w-[46ch] text-[15.5px] leading-relaxed text-black/55 sm:text-[16.5px]">
+                Drop in a contract, a statement or a sales sheet and ask your first question while it is still being read.
+              </p>
+              <button
+                type="button"
+                onClick={() => void go()}
+                disabled={working}
+                aria-label="Launch Zambot"
+                className="group mt-9 flex h-14 w-full max-w-[560px] items-center gap-1 rounded-full border border-white bg-white/90 pl-3 pr-2 text-left shadow-[0_20px_50px_-24px_rgba(60,40,110,0.45)] transition hover:bg-white disabled:cursor-wait"
+              >
+                <span className="grid h-10 w-10 place-items-center text-black/45">
+                  <Icon name="paperclip" size={18} />
+                </span>
+                <span className="min-w-0 flex-1 truncate text-[15px] font-medium text-black/40">
+                  {working ? "Opening your workspace…" : "Add a file and ask…"}
+                </span>
+                <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[#2B2B30] text-white transition-transform duration-200 group-hover:scale-105">
+                  {working ? <ZMark size={18} className="text-white" /> : <Icon name="arrowUp" size={19} strokeWidth={2.1} />}
+                </span>
+              </button>
+              <p className="mt-3 text-[12.5px] text-black/45">PDF, Word and Excel · free, no sign-up</p>
             </div>
           </div>
         </section>
       </main>
 
       {/* ---------------------------------------------------------- footer */}
-      <footer className="border-t border-white/10">
-        <div className="mx-auto flex max-w-[1320px] flex-col gap-4 px-5 py-8 sm:flex-row sm:items-center sm:justify-between sm:px-8">
+      <footer className="border-t border-white/60">
+        <div className="mx-auto flex max-w-[1240px] flex-col gap-3 px-5 py-8 sm:flex-row sm:items-center sm:justify-between sm:px-8">
           <div className="flex items-center gap-4">
-            <AnimatedLogo className="w-[84px] text-[#EFEEE9]" />
-            <span className="font-label text-[11px] uppercase tracking-[0.14em] text-[#5E5D58]">© 2026</span>
+            <img src="/logo.svg" alt="ZAMBOT" className="h-[14px] w-auto opacity-80" />
+            <span className="text-[13px] text-black/40">© 2026</span>
           </div>
-          <p className="font-label text-[11px] uppercase tracking-[0.14em] text-[#5E5D58]">
-            Built on free tiers · Supabase · Groq · Gemini · E2B
-          </p>
+          <p className="text-[13px] text-black/40">Built on free tiers · Supabase · Groq · Gemini · E2B</p>
         </div>
       </footer>
     </div>

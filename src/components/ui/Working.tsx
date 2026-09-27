@@ -1,15 +1,15 @@
 /**
  * The "something is happening" marks.
  *
- *   Working      : a thin ring with an arc gliding round it and a breathing
- *                  centre while a step runs; it settles into a filled circle
- *                  and draws a tick when the step is done (a cross on error,
- *                  a dotted ring while waiting its turn)
- *   ProgressRing : the same ring filling to a percentage, with the number in
- *                  the middle and the arc still moving while work continues
+ *   Working      : while a step runs, the Z of the Zambot wordmark writes
+ *                  itself over and over - a bright pixel runs along the Z's
+ *                  strokes with a fading trail. It settles into a filled
+ *                  circle and draws a tick when the step is done (a cross on
+ *                  error, a dotted ring while waiting its turn)
+ *   ProgressRing : a ring filling to a percentage, with the number in the
+ *                  middle and an arc still moving while work continues
  *
- * Monochrome, calm and exact - motion only where work is actually going on,
- * and it holds still under prefers-reduced-motion.
+ * Monochrome and exact - motion only where work is actually going on.
  */
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 
@@ -19,30 +19,42 @@ export type WorkState = "working" | "done" | "error" | "waiting";
 
 const EASE = [0.22, 1, 0.36, 1] as const;
 const R = 9;
-const RAYS = 8;
+
+/** The Z from the wordmark's 5×5 letters, in the order a pen would draw it: (row, col). */
+const Z_STROKE = [
+  [0, 0], [0, 1], [0, 2], [0, 3], [0, 4],
+  [1, 3], [2, 2], [3, 1],
+  [4, 0], [4, 1], [4, 2], [4, 3], [4, 4],
+];
+/** Seconds between one pixel lighting and the next; the loop is .zmark-pixel in index.css. */
+const Z_STEP = 0.085;
+const Z_PERIOD = 1.5;
 
 /**
- * Eight rounded rays around a small core. Each ray grows and shrinks a moment
- * after its neighbour, so a pulse keeps travelling round the mark while it
- * slowly turns: it reads as "busy thinking", not as a progress bar. Pure CSS
- * (see .spark in index.css), so it keeps moving even when the browser asks
- * for reduced motion - a loading mark is information, not decoration.
+ * The Z writing itself. Pure CSS, so it keeps moving even when the browser
+ * asks for reduced motion - a loading mark is information, not decoration.
  */
-function SparkRays() {
+function ZStroke() {
   return (
-    <g className="spark-spin">
-      {Array.from({ length: RAYS }, (_, i) => (
-        <g key={i} transform={`rotate(${(360 / RAYS) * i} 12 12)`}>
-          <line x1="12" y1="8.4" x2="12" y2="2.4" className="spark-ray" style={{ animationDelay: `${(-1.12 * i) / RAYS}s` }} />
-        </g>
+    <g>
+      {Z_STROKE.map(([row, col], index) => (
+        <rect
+          key={index}
+          x={1.3 + col * 4.4}
+          y={1.3 + row * 4.4}
+          width={3.8}
+          height={3.8}
+          rx={0.9}
+          className="zmark-pixel"
+          style={{ animationDelay: `${index * Z_STEP - Z_PERIOD}s` }}
+        />
       ))}
-      <circle cx="12" cy="12" r="1.9" className="spark-core" />
     </g>
   );
 }
 
-/** The spark on its own, for places that only ever show "working". */
-export function Spark({ size = 20, className, label }: { size?: number; className?: string; label?: string }) {
+/** The writing Z on its own, for places that only ever show "working". */
+export function ZMark({ size = 20, className, label }: { size?: number; className?: string; label?: string }) {
   return (
     <svg
       viewBox="0 0 24 24"
@@ -51,9 +63,9 @@ export function Spark({ size = 20, className, label }: { size?: number; classNam
       role={label ? "img" : undefined}
       aria-label={label}
       aria-hidden={label ? undefined : true}
-      className={cn("spark motion-essential shrink-0 overflow-visible text-[rgb(var(--text))]", className)}
+      className={cn("zmark motion-essential shrink-0 overflow-visible text-[rgb(var(--text))]", className)}
     >
-      <SparkRays />
+      <ZStroke />
     </svg>
   );
 }
@@ -78,12 +90,12 @@ export function Working({
       role={label ? "img" : undefined}
       aria-label={label}
       aria-hidden={label ? undefined : true}
-      className={cn("spark motion-essential shrink-0 overflow-visible text-[rgb(var(--text))]", className)}
+      className={cn("zmark motion-essential shrink-0 overflow-visible text-[rgb(var(--text))]", className)}
     >
       <AnimatePresence mode="wait" initial={false}>
         {state === "working" && (
           <motion.g key="working" initial={{ opacity: 0, scale: 0.7 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.7 }} style={{ transformOrigin: "12px 12px" }}>
-            <SparkRays />
+            <ZStroke />
           </motion.g>
         )}
         {state === "done" && (

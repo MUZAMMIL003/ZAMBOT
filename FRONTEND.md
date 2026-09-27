@@ -106,7 +106,7 @@ OneDrive (`EINVAL readlink`).
 
 | Path | Screen |
 |---|---|
-| `/` | `Landing`: a dark poster page (see *Landing page* below); *Launch Zambot* opens the app |
+| `/` | `Landing`: the app's pastel-glass design, turned up (see *Landing page* below); *Launch Zambot* opens the app |
 | `/chats`, `/chats/new` | `Start`: the composer-first start screen (replaces the old Home + New Chat) |
 | `/chats/:chatId` | `Conversation` |
 | `/chats/files` | `Files`: every document; tapping one opens it in its chat's panel (`state.openDocument`) |
@@ -187,21 +187,30 @@ The font is Helvetica Neue. `.mesh-bg` is the pastel ground: lavender
 | Menus and pop-ups | solid white `rounded-2xl shadow-lifted` (a blur nested inside a blur fails in Chrome) |
 | Orb / Aurora | pastel, for the empty chat and reading state (Orb itself is retired to `_superseded/`) |
 
-**Landing page** (`routes/Landing.tsx` + `components/landing/`). It is deliberately
-unlike the app and unlike template AI sites. The inspiration was e2b.dev: black ground,
-pixel noise, bracket labels, condensed capitals, square buttons, hairline grids, and a
-live product instead of illustrations.
+**Loading mark** (`components/ui/Working.tsx`). While something runs, the Z from the
+wordmark writes itself: a bright pixel runs along the Z's strokes with a fading trail
+(`ZMark`, and `Working state="working"`; CSS `.zmark-pixel` in `index.css`, class
+`motion-essential` so it moves even under reduced motion). Done is a black circle with
+a tick, error a red cross, waiting a dotted ring. The owner rejected a rayed "spark"
+because it looked like Claude's; don't bring back sparkles, rays or orbs.
+
+**Landing page** (`routes/Landing.tsx` + `components/landing/`). It uses the app's own
+design, turned up for a first impression: the fixed `mesh-bg` pastel ground with `Aurora`,
+frosted-white glass cards (`rounded-[28px] border-white/60 bg-white/40 backdrop-blur-md`),
+black Helvetica with a muted second line, 12px uppercase labels at `text-black/45`, the
+charcoal `#2B2B30` pill button with a white arrow circle, and the app's quote highlight
+(`#FFF1A8` + `#E8C547` edge) as the one accent. It must not look like a template AI site:
+no gradient text, no sparkles, no icon grids; every animation shows real product
+behaviour. (An earlier dark e2b-style version is in `_superseded/landing-dark/`.)
 
 | Part | What it is |
 |---|---|
-| Colours | ink `#0B0B0A`, text `#EFEEE9`, muted `#A9A8A2` / `#8E8D87`, dim `#5E5D58`; the one accent is highlighter yellow `#F2D544` (the app's quote highlight) |
-| Type | `font-poster` = Archivo at `[font-stretch:70%]` for headlines; `font-label` = IBM Plex Mono for labels (Google Fonts in `index.html`) |
-| `PixelField` | canvas of breathing pixels from value noise, a sweep every 7.2s and yellow "highlighter" runs; `hero` / `floor` layouts; pauses off-screen |
-| `HeroDemo` | a 17s loop of the real product: read (six steps + page scan) → ask (streamed answer, citation pop-up) → calc (pandas in the sandbox) |
-| `ReadingTrack` | the six reading steps as a track with a travelling yellow line (across on desktop, down the left on phones) |
-| `FeatureCells` | six cells, each a tiny working demo: citation, spreadsheet maths, steps, ask-while-reading, follow-up, sources |
+| `PageField` | canvas background: a page of text in the wordmark's pixels (pale white words in columns). It prints itself in, a highlighter sweeps a sentence every ~1.5s and turns it to ink, and a mouse darkens the words under it. Densest at the edges, calm where the copy is; `hero` / `card` layouts; paused off-screen |
+| `HeroDemo` | a 17s loop in the app's own parts: chat header, reading steps with the Z mark, question bubble, grey citation pill + cream quote pop-up, highlighted page line, sandbox block, spreadsheet with highlighted rows, and the composer typing the question |
+| `ReadingTrack` | the six reading steps with the app's six-part bar; the active step lifts onto a white card |
+| `FeatureCells` | six glass cards, each a working copy of one behaviour: citation, pandas maths, answer steps, ask-while-reading, follow-up, source switches |
 | `PixelNumber` | 6 / 768 / 3 / 100 in the wordmark's 5×7 pixel digits, counting up in view |
-| Other | ticker of file types, scroll-linked ASK · CITE · CHECK band, CTA box with yellow corner marks |
+| Other | glass nav (its logo fades in once you scroll), "People bring" ticker, scroll-linked Ask · Cite · Check band, and a closing card that mirrors the Start screen ("What are we reading today?" with a composer that launches the app) |
 
 Rules learnt: give grid columns `minmax(0,1fr)` or the demos push phone layouts sideways;
 `useInView` margins must be vertical only (`"-80px 0px -80px 0px"`), otherwise the left
@@ -343,7 +352,7 @@ src/
            pipeline.ts (the six reading phases and the answer steps, and how to say them in words)
   routes/  Landing · AppShell (Sidebar + page) · Start · Conversation · Files · Settings
   components/landing/
-           PixelField · HeroDemo · ReadingTrack · FeatureCells · PixelNumber
+           PageField · HeroDemo · ReadingTrack · FeatureCells · PixelNumber
   lib/useLoop.ts  rAF loop clock for the landing demos (+ typed() for typing text)
   components/chat/
            Sidebar · Composer · FileDropZone · BriefCard · Message (RichText, tables,
@@ -358,6 +367,7 @@ src/
            SideRail (DEAD, older)
   components/ui/
            Icon · AnimatedLogo · PageHeader (+ MenuButton) · List · Skeleton · Aurora ·
+           Working (Working / ZMark / ProgressRing: the writing-Z loading mark) ·
            PixelMark (7×7 pixel mark in the wordmark's style that acts out each step:
            inspect scan, extract typing, chunk split, embed wave, index filing, think, done, error)
            PromoCard, Button, ThemeToggle, Logo (DEAD, older)

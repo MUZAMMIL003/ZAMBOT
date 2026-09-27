@@ -1,94 +1,76 @@
 /**
- * The six reading steps as a track. A marker travels along it on a loop and
- * wakes each station as it passes: the number turns yellow and the station's
- * pixel icon acts out its step. Across on wide screens, down on phones.
+ * The six reading steps, the way the app shows them: the six-part progress
+ * bar, and a card per step with its mark. On a loop the bar fills and each
+ * step wakes in turn - its Z writes itself while it runs, then it ticks off.
+ * Six across on wide screens, a list on phones.
  */
 import { useInView } from "framer-motion";
 import { useRef } from "react";
 
-import { PixelMark, type PixelMode } from "@/components/ui/PixelMark";
+import { Working } from "@/components/ui/Working";
 import { useLoop } from "@/lib/useLoop";
 import { cn } from "@/lib/utils";
 
-const STATIONS: { title: string; body: string; spec: string; mode: PixelMode }[] = [
-  { title: "Upload", body: "The original is kept in private storage, so you can always open it again.", spec: "supabase storage", mode: "index" },
-  {
-    title: "Inspect",
-    body: "A throwaway sandbox opens the file and measures it: pages, text, tables, scans.",
-    spec: "e2b micro-vm",
-    mode: "inspect",
-  },
-  {
-    title: "Extract",
-    body: "A script is written for this exact file. It only counts if the text passes the checks.",
-    spec: "3 tries · checked",
-    mode: "extract",
-  },
-  { title: "Split", body: "The text is cut into passages small enough to quote, each tagged with its page.", spec: "≈500 tokens · page-tagged", mode: "chunk" },
-  {
-    title: "Map meaning",
-    body: "Each passage becomes 768 numbers, so a question finds it even in other words.",
-    spec: "768 dimensions",
-    mode: "embed",
-  },
-  { title: "File away", body: "Everything is saved to search by meaning and by the exact words.", spec: "postgres · pgvector", mode: "index" },
+const STATIONS = [
+  { title: "Upload", body: "The original is kept in private storage, so you can open it again any time.", spec: "Supabase storage", weight: 5 },
+  { title: "Inspect", body: "A throwaway sandbox opens the file and measures it: pages, text, tables, scans.", spec: "E2B sandbox", weight: 15 },
+  { title: "Extract", body: "A script is written for this exact file. The text only counts if it passes the checks.", spec: "Up to 3 tries", weight: 30 },
+  { title: "Split", body: "The text is cut into passages small enough to quote, each tagged with its page.", spec: "≈500 tokens each", weight: 10 },
+  { title: "Map the meaning", body: "Each passage becomes 768 numbers, so a question finds it even in other words.", spec: "768 dimensions", weight: 30 },
+  { title: "File it away", body: "Everything is saved to search by meaning and by the exact words.", spec: "Postgres · pgvector", weight: 10 },
 ];
 
 const STEP_MS = 1400;
-const PERIOD = STEP_MS * STATIONS.length + 1600;
+const RUN_MS = STEP_MS * STATIONS.length;
+const PERIOD = RUN_MS + 1800;
 
 export function ReadingTrack() {
   const ref = useRef<HTMLDivElement>(null);
   const inView = useInView(ref, { margin: "-120px 0px -120px 0px" });
-  const { t } = useLoop(PERIOD, inView, 80);
-  const progress = Math.min(1, t / (STEP_MS * STATIONS.length));
+  const { t } = useLoop(PERIOD, inView, 60);
   const active = Math.min(STATIONS.length - 1, Math.floor(t / STEP_MS));
-  const finished = t >= STEP_MS * STATIONS.length;
+  const finished = t >= RUN_MS;
 
   return (
-    <div ref={ref} className="relative border border-white/10">
-      <div className="absolute left-0 top-0 hidden h-px w-full bg-white/10 lg:block">
-        <div className="h-px bg-[#F2D544]" style={{ width: `${progress * 100}%` }} />
+    <div ref={ref} className="rounded-[28px] border border-white/60 bg-white/40 p-2 shadow-sm backdrop-blur-md">
+      <div className="flex items-center gap-4 px-4 pb-3 pt-3.5">
+        <p className="shrink-0 text-[12px] font-medium uppercase tracking-wider text-black/45">
+          {finished ? "Ready to ask" : `Step ${active + 1} of 6`}
+        </p>
+        <div className="flex flex-1 gap-[3px]">
+          {STATIONS.map((station, index) => {
+            const fill = finished ? 1 : Math.max(0, Math.min(1, (t - index * STEP_MS) / STEP_MS));
+            return (
+              <span key={station.title} className="relative h-[5px] overflow-hidden rounded-full bg-black/[0.07]" style={{ flex: station.weight }}>
+                <span className="absolute inset-y-0 left-0 rounded-full bg-black" style={{ width: `${fill * 100}%` }} />
+              </span>
+            );
+          })}
+        </div>
       </div>
-      <div className="absolute left-[27px] top-0 h-full w-px bg-white/10 lg:hidden">
-        <div className="w-px bg-[#F2D544]" style={{ height: `${progress * 100}%` }} />
-      </div>
-      <ol className="grid lg:grid-cols-6">
+      <ol className="grid grid-cols-[minmax(0,1fr)] gap-1.5 lg:grid-cols-6">
         {STATIONS.map((station, index) => {
-          const state = finished || index < active ? "done" : index === active ? "now" : "next";
+          const state = finished || index < active ? "done" : index === active ? "working" : "waiting";
           return (
             <li
               key={station.title}
               className={cn(
-                "relative flex gap-4 border-white/10 py-6 pl-[60px] pr-5 lg:block lg:border-l lg:px-5 lg:py-7 lg:first:border-l-0",
-                index > 0 && "border-t lg:border-t-0",
+                "flex items-start gap-4 rounded-[22px] p-4 transition-all duration-500 lg:block lg:p-5",
+                state === "working" ? "bg-white shadow-card" : state === "done" ? "bg-white/45" : "bg-transparent",
               )}
             >
-              <span
-                className={cn(
-                  "absolute left-[21px] top-7 h-[13px] w-[13px] border transition-colors duration-300 lg:hidden",
-                  state === "next" ? "border-white/25 bg-[#0B0B0A]" : "border-[#F2D544] bg-[#F2D544]",
-                )}
-              />
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center justify-between">
-                  <span
-                    className={cn(
-                      "font-label text-[12px] tracking-[0.12em] transition-colors duration-300",
-                      state === "next" ? "text-[#5E5D58]" : "text-[#F2D544]",
-                    )}
-                  >
-                    {String(index + 1).padStart(2, "0")}
-                  </span>
-                  <span className={cn("transition-opacity duration-300", state === "next" ? "opacity-25" : "opacity-100")}>
-                    <PixelMark mode={state === "now" ? station.mode : state === "done" ? "done" : "idle"} size={30} className="text-[#EFEEE9]" />
-                  </span>
-                </div>
-                <h3 className="mt-4 font-poster text-[26px] font-bold uppercase leading-none tracking-[-0.01em] [font-stretch:78%] lg:mt-10">
+              <div className="flex shrink-0 items-center justify-between lg:mb-8">
+                <span className="grid h-9 w-9 place-items-center rounded-full bg-white/90 shadow-[0_1px_2px_rgba(0,0,0,0.05)]">
+                  <Working state={state} size={24} />
+                </span>
+                <span className="hidden text-[12px] tabular-nums text-black/30 lg:block">{String(index + 1).padStart(2, "0")}</span>
+              </div>
+              <div className="min-w-0">
+                <h3 className={cn("text-[17px] font-semibold tracking-[-0.01em] transition-colors", state === "waiting" && "text-black/40")}>
                   {station.title}
                 </h3>
-                <p className="mt-2.5 text-[14px] leading-relaxed text-[#A9A8A2]">{station.body}</p>
-                <p className="mt-4 font-label text-[10.5px] uppercase tracking-[0.12em] text-[#5E5D58]">{station.spec}</p>
+                <p className="mt-1.5 text-[14px] leading-relaxed text-black/55">{station.body}</p>
+                <p className="mt-3 text-[11px] font-medium uppercase tracking-wider text-black/35">{station.spec}</p>
               </div>
             </li>
           );
