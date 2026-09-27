@@ -18,9 +18,10 @@ import { useEffect, useState } from "react";
 import { FileTypeIcon, Icon } from "@/components/ui/Icon";
 import { PixelMark } from "@/components/ui/PixelMark";
 import { Skeleton } from "@/components/ui/Skeleton";
+import { ProgressRing, Working } from "@/components/ui/Working";
 import type { DocumentBrief, DocumentRecord, KeyFact } from "@/lib/types";
 import { cn, truncate } from "@/lib/utils";
-import { modeOf, percentOf, phasesOf, readSummary } from "@/lib/pipeline";
+import { PHASES, activePhase, percentOf, phasesOf, readSummary } from "@/lib/pipeline";
 import { ReadingPipeline } from "./ReadingPipeline";
 
 export { SandboxSteps } from "./ReadingPipeline";
@@ -81,7 +82,8 @@ export function BriefCard({
   if (processing.length > 0 || uploading.length > 0) {
     const count = processing.length + uploading.length;
     const lead = processing[0];
-    const mode = lead ? modeOf(phasesOf(lead)) : "index";
+    const leadPhase = lead ? activePhase(phasesOf(lead)) : undefined;
+    const doing = leadPhase ? PHASES.find((p) => p.key === leadPhase.key)?.doing : "Uploading";
     const percent = processing.length
       ? Math.round(processing.reduce((sum, d) => sum + percentOf(phasesOf(d)), 0) / processing.length)
       : 2;
@@ -93,16 +95,14 @@ export function BriefCard({
         aria-live="polite"
       >
         <div className="flex items-center gap-3.5">
-          <span className="relative grid h-14 w-14 shrink-0 place-items-center rounded-[18px] bg-[rgb(var(--text))] shadow-[0_6px_20px_rgba(0,0,0,0.18)]">
-            <PixelMark mode={mode} size={40} className="text-white" />
-          </span>
+          <ProgressRing percent={percent} size={58} />
           <div className="min-w-0 flex-1">
             <h2 className="text-[15.5px] font-semibold tracking-tight">
               {processing.length === 0 ? "Uploading" : "Reading"} {count === 1 ? "your document" : `${count} documents`}
             </h2>
-            <p className="text-[12.5px] text-muted">Ask your question now. The answer arrives as soon as reading finishes.</p>
+            <p className="text-shimmer truncate text-[12.5px] font-medium">{doing}…</p>
+            <p className="text-[12px] text-muted">Ask your question now. The answer arrives as soon as reading finishes.</p>
           </div>
-          <span className="shrink-0 font-mono text-[20px] font-medium tabular-nums tracking-tight">{percent}%</span>
         </div>
         <ul className="mt-4 space-y-2.5">
           {documents.map((document, index) => (
@@ -129,9 +129,7 @@ export function BriefCard({
         role="alert"
       >
         <div className="flex items-center gap-3.5">
-          <span className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-white shadow-sm ring-1 ring-danger/20">
-            <PixelMark mode="error" size={28} className="text-danger" />
-          </span>
+          <Working state="error" size={44} />
           <div>
             <h2 className="text-[15.5px] font-semibold tracking-tight">
               {failed.length === 1 ? "This document could not be read" : "These documents could not be read"}
@@ -289,8 +287,8 @@ function UploadingRow({ name, extension }: { name: string; extension: string }) 
         ))}
       </div>
       <div className="mt-2.5 flex items-center gap-2.5">
-        <PixelMark mode="index" size={16} />
-        <span className="text-[12.5px] font-medium">Uploading</span>
+        <Working state="working" size={16} />
+        <span className="text-shimmer text-[12.5px] font-medium">Uploading</span>
         <span className="text-[12.5px] text-muted">· sending the file to private storage</span>
       </div>
     </div>
@@ -309,7 +307,7 @@ function ReadLine({ document, open, onToggle }: { document: DocumentRecord; open
         open && "bg-white/80",
       )}
     >
-      <PixelMark mode="done" size={16} />
+      <Working state="done" size={16} />
       <span className="min-w-0 flex-1 truncate text-[12.5px]">
         <span className="font-medium">{truncate(document.filename, 34)}</span>
         <span className="text-muted"> · {summary}</span>

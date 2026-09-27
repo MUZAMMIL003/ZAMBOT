@@ -278,3 +278,35 @@
     transition-duration: 0.01ms !important;
   }
 }
+
+/* Text that is being worked on: a soft light passes across it. */
+.text-shimmer {
+  background: linear-gradient(
+    90deg,
+    rgb(var(--text) / 0.58) 0%,
+    rgb(var(--text) / 0.58) 38%,
+    rgb(var(--text)) 50%,
+    rgb(var(--text) / 0.58) 62%,
+    rgb(var(--text) / 0.58) 100%
+  );
+  background-size: 240% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: text-shimmer 2.2s linear infinite;
+}
+@keyframes text-shimmer {
+  from {
+    background-position: 120% 0;
+  }
+  to {
+    background-position: -120% 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .text-shimmer {
+    animation: none;
+    color: rgb(var(--text) / 0.75);
+    background: none;
+  }
+}

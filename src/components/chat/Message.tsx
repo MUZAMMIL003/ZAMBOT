@@ -518,7 +518,7 @@ export function Message({
         ) : (
           <div className="py-2 text-[rgb(var(--text))]">
             {message.trace && message.trace.length > 0 && (
-              <AnswerTrace trace={message.trace} streaming={message.streaming} />
+              <AnswerTrace trace={message.trace} runs={message.sandbox_runs} streaming={message.streaming} />
             )}
             <RichText text={message.content} sources={sources} onOpenSource={onOpenSource} />
             {message.streaming && (

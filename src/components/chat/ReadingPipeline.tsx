@@ -14,7 +14,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { useEffect, useState, type ReactNode } from "react";
 
 import { FileTypeIcon, Icon } from "@/components/ui/Icon";
-import { PixelMark, type PixelMode } from "@/components/ui/PixelMark";
+import { Working } from "@/components/ui/Working";
 import {
   FAILED,
   METHOD,
@@ -112,9 +112,9 @@ export function ReadingPipeline({
 
       {(running || failed) && current && currentMeta && (
         <div className="flex items-center gap-2.5 px-3.5 pt-2.5">
-          <PixelMark mode={failed ? "error" : currentMeta.mode} size={16} />
+          <Working state={failed ? "error" : "working"} size={16} />
           <span className="min-w-0 flex-1 truncate text-[12.5px]">
-            <span className="font-medium">{failed ? `${currentMeta.title} failed` : currentMeta.doing}</span>
+            <span className={cn("font-medium", !failed && "text-shimmer")}>{failed ? `${currentMeta.title} failed` : currentMeta.doing}</span>
             {current.detail && <span className="text-muted"> · {current.detail}</span>}
           </span>
         </div>
@@ -202,28 +202,18 @@ function SegmentBar({ phases }: { phases: Phase[] }) {
   );
 }
 
-function Node({ status, mode }: { status: PhaseStatus; mode: PixelMode }) {
-  if (status === "active") {
+function Node({ status }: { status: PhaseStatus }) {
+  if (status === "skipped") {
     return (
-      <span className="grid h-7 w-7 place-items-center rounded-lg bg-white shadow-sm ring-1 ring-black/10">
-        <PixelMark mode={mode} size={18} />
+      <span className="grid h-7 w-7 place-items-center rounded-full bg-black/[0.06] text-muted">
+        <span className="h-[2px] w-2.5 rounded-full bg-current" />
       </span>
     );
   }
+  const state = status === "active" ? "working" : status === "done" ? "done" : status === "failed" ? "error" : "waiting";
   return (
-    <span
-      className={cn(
-        "grid h-7 w-7 place-items-center rounded-lg transition-colors",
-        status === "done" && "bg-[rgb(var(--text))] text-white",
-        status === "failed" && "bg-danger text-white",
-        status === "skipped" && "bg-black/[0.06] text-muted",
-        status === "pending" && "bg-white/60 text-muted ring-1 ring-inset ring-black/10",
-      )}
-    >
-      {status === "done" && <Icon name="check" size={14} strokeWidth={2.6} />}
-      {status === "failed" && <Icon name="x" size={14} strokeWidth={2.6} />}
-      {status === "skipped" && <span className="h-[2px] w-2.5 rounded-full bg-current" />}
-      {status === "pending" && <span className="h-1.5 w-1.5 rounded-[2px] bg-current opacity-50" />}
+    <span className="grid h-7 w-7 place-items-center rounded-full bg-white/80">
+      <Working state={state} size={26} />
     </span>
   );
 }
@@ -272,7 +262,7 @@ function PhaseRow({
           />
         </span>
       )}
-      <Node status={p.status} mode={meta.mode} />
+      <Node status={p.status} />
       <div className="min-w-0 flex-1 pt-[3px]">
         <button
           type="button"

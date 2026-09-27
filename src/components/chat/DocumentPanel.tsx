@@ -20,7 +20,7 @@ import { Skeleton } from "@/components/ui/Skeleton";
 import { api } from "@/lib/api";
 import type { DocumentPage, DocumentRecord, PageBlock } from "@/lib/types";
 import { ReadingPipeline } from "@/components/chat/ReadingPipeline";
-import { PixelMark } from "@/components/ui/PixelMark";
+import { Working } from "@/components/ui/Working";
 import { ACCEPTED_EXTENSIONS, cn, formatBytes, truncate } from "@/lib/utils";
 
 export interface PanelFocus {
@@ -660,7 +660,7 @@ function SourcesView({
                     aria-expanded={showing === document.id}
                     className="mr-auto flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[12px] font-medium text-[rgb(var(--text))]/60 hover:bg-black/5 hover:text-[rgb(var(--text))]"
                   >
-                    <PixelMark mode={document.status === "ready" ? "done" : document.status === "failed" ? "error" : "extract"} size={14} />
+                    <Working state={document.status === "ready" ? "done" : document.status === "failed" ? "error" : "working"} size={14} />
                     {showing === document.id ? "Hide the steps" : "How it was read"}
                     {document.used_recipe ? " · saved recipe" : document.used_fallback ? " · basic reader" : ""}
                   </button>
