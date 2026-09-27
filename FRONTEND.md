@@ -212,6 +212,15 @@ behaviour. (An earlier dark e2b-style version is in `_superseded/landing-dark/`.
 | `PixelNumber` | 6 / 768 / 3 / 100 in the wordmark's 5×7 pixel digits, counting up in view |
 | Other | glass nav (its logo fades in once you scroll), "People bring" ticker, scroll-linked Ask · Cite · Check band, and a closing card that mirrors the Start screen ("What are we reading today?" with a composer that launches the app) |
 
+The nav button is `NavLaunch`: a slim charcoal "Start reading" pill whose pixel Z
+(`ZMark still`) writes itself on hover. The hero keeps the large "Launch Zambot" pill.
+
+**Deploy notes.** `frontend/vercel.json` rewrites every path except `/assets/*` to
+`index.html`; without it, reloading `/chats/<id>` (refresh, Back after leaving the site,
+a phone waking a tab) gave Vercel's 404 page. `src/lib/reload-on-update.ts` reloads the
+tab once if a screen from an older deploy fails to load. Leaving a chat aborts its
+streaming answer (`LEFT_CHAT`), and the start-screen hand-off state is always cleared.
+
 Rules learnt: give grid columns `minmax(0,1fr)` or the demos push phone layouts sideways;
 `useInView` margins must be vertical only (`"-80px 0px -80px 0px"`), otherwise the left
 column on a phone never counts as in view.

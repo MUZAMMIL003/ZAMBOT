@@ -6,6 +6,7 @@ import { App } from "./App";
 import { Providers } from "./lib/providers";
 
 import "./index.css";
+import "./lib/reload-on-update";
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>

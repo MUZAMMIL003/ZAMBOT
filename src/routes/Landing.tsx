@@ -66,17 +66,7 @@ function Label({ children, className }: { children: ReactNode; className?: strin
   return <p className={cn("text-[12px] font-medium uppercase tracking-wider text-black/45", className)}>{children}</p>;
 }
 
-function Launch({
-  onClick,
-  working,
-  compact = false,
-  className,
-}: {
-  onClick: () => void;
-  working: boolean;
-  compact?: boolean;
-  className?: string;
-}) {
+function Launch({ onClick, working, className }: { onClick: () => void; working: boolean; className?: string }) {
   return (
     <button
       type="button"
@@ -84,19 +74,44 @@ function Launch({
       disabled={working}
       className={cn(
         "group inline-flex items-center justify-center gap-3 rounded-full bg-[#2B2B30] font-medium text-white shadow-[0_12px_30px_-12px_rgba(0,0,0,0.5)] transition-colors hover:bg-[#1F1F23] active:scale-[0.98] disabled:cursor-wait",
-        compact ? "h-10 pl-4 pr-1.5 text-[14px]" : "h-[52px] pl-6 pr-2 text-[15.5px]",
+        "h-[52px] pl-6 pr-2 text-[15.5px]",
         className,
       )}
     >
-      <span>{working ? "Opening…" : compact ? "Launch" : "Launch Zambot"}</span>
+      <span>{working ? "Opening…" : "Launch Zambot"}</span>
       <span
         className={cn(
           "grid place-items-center rounded-full bg-white text-black transition-transform duration-300 group-hover:translate-x-0.5",
-          compact ? "h-7 w-7" : "h-9 w-9",
+          "h-9 w-9",
         )}
       >
-        {working ? <ZMark size={compact ? 14 : 17} /> : <Icon name="arrowRight" size={compact ? 15 : 17} strokeWidth={2} />}
+        {working ? <ZMark size={17} /> : <Icon name="arrowRight" size={17} strokeWidth={2} />}
       </span>
+    </button>
+  );
+}
+
+/**
+ * The nav's way in: a slim charcoal pill. The wordmark's Z sits in front and
+ * writes itself on hover (and while the workspace opens); the arrow steps
+ * forward.
+ */
+function NavLaunch({ onClick, working }: { onClick: () => void; working: boolean }) {
+  const [hover, setHover] = useState(false);
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={working}
+      onPointerEnter={() => setHover(true)}
+      onPointerLeave={() => setHover(false)}
+      onFocus={() => setHover(true)}
+      onBlur={() => setHover(false)}
+      className="group inline-flex h-9 items-center gap-2 rounded-full bg-[#2B2B30] pl-3 pr-3.5 text-[13.5px] font-medium text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.14),0_1px_2px_rgba(0,0,0,0.18)] transition-colors hover:bg-[#1F1F23] active:scale-[0.98] disabled:cursor-wait sm:h-10 sm:pl-3.5 sm:pr-4 sm:text-[14px]"
+    >
+      <ZMark size={15} still={!hover && !working} className="text-white" />
+      <span className="whitespace-nowrap">{working ? "Opening…" : "Start reading"}</span>
+      <Icon name="arrowRight" size={15} strokeWidth={2} className="-ml-0.5 text-white/60 transition-all duration-300 group-hover:translate-x-0.5 group-hover:text-white" />
     </button>
   );
 }
@@ -247,7 +262,7 @@ export function Landing() {
             ))}
           </nav>
           <div className="ml-auto">
-            <Launch onClick={() => void go()} working={working} compact />
+            <NavLaunch onClick={() => void go()} working={working} />
           </div>
         </div>
       </header>

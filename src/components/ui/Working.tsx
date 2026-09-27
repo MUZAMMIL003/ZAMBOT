@@ -53,8 +53,8 @@ function ZStroke() {
   );
 }
 
-/** The writing Z on its own, for places that only ever show "working". */
-export function ZMark({ size = 20, className, label }: { size?: number; className?: string; label?: string }) {
+/** The writing Z on its own, for places that only ever show "working". `still` holds it as a plain Z. */
+export function ZMark({ size = 20, className, label, still = false }: { size?: number; className?: string; label?: string; still?: boolean }) {
   return (
     <svg
       viewBox="0 0 24 24"
@@ -63,7 +63,7 @@ export function ZMark({ size = 20, className, label }: { size?: number; classNam
       role={label ? "img" : undefined}
       aria-label={label}
       aria-hidden={label ? undefined : true}
-      className={cn("zmark motion-essential shrink-0 overflow-visible text-[rgb(var(--text))]", className)}
+      className={cn("zmark motion-essential shrink-0 overflow-visible text-[rgb(var(--text))]", still && "zmark-still", className)}
     >
       <ZStroke />
     </svg>

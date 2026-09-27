@@ -89,6 +89,8 @@ function useExcluded(chatId: string) {
   return [excluded, toggle] as const;
 }
 
+const LEFT_CHAT = "left-chat";
+
 export function Conversation() {
   const { chatId = "" } = useParams();
   const navigate = useNavigate();
@@ -146,6 +148,16 @@ export function Conversation() {
   useEffect(() => {
     if (pinned.current) scrollToBottom(messages.length > 1);
   }, [messages, scrollToBottom]);
+
+  // Leaving the chat (Back, another chat, another page) stops an answer that
+  // is still streaming, so it never writes into the screen you went to.
+  useEffect(
+    () => () => {
+      abortRef.current?.abort(LEFT_CHAT);
+      abortRef.current = null;
+    },
+    [chatId],
+  );
 
   // ----------------------------------------------------------------- load
   useEffect(() => {
@@ -421,7 +433,7 @@ export function Conversation() {
       } catch (caught) {
         const e = caught as ApiError;
         if (e.name === "AbortError" || controller.signal.aborted) {
-          upsert({ content: buffer || "(stopped)", streaming: false });
+          if (controller.signal.reason !== LEFT_CHAT) upsert({ content: buffer || "(stopped)", streaming: false });
         } else {
           setError(e.message || "The answer could not be generated.");
           setMessages((c) => c.filter((m) => m.id !== assistantId));
@@ -503,7 +515,7 @@ export function Conversation() {
   useEffect(() => {
     if (loading || !location.state) return;
     const state = location.state as StartState & { openDocument?: string };
-    let consumed = false;
+    let consumed = Boolean(state.chat);
 
     if (state.initialFiles?.length || state.initialMessage) {
       void submit(state.initialMessage ?? "", state.initialFiles ?? []);

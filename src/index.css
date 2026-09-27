@@ -312,6 +312,9 @@
   transform-origin: center;
   animation: zmark-pixel 1.5s linear infinite;
 }
+.zmark-still .zmark-pixel {
+  animation: none;
+}
 @keyframes zmark-pixel {
   0% {
     opacity: 1;
