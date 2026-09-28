@@ -206,6 +206,8 @@ export function describe(step: TraceStep): string {
     }
     case "ranking":
       if (!("kept" in f)) return "";
+      if (n("whole")) return `A judgement question - read the whole document (${plural(n("whole"), "passage")})`;
+      if (f.kind === "analysis") return `A judgement question - used the ${n("kept")} most useful of ${n("of")}`;
       return n("kept") ? `Kept the ${n("kept")} most relevant of ${n("of")}` : `None of the ${n("of")} passages actually answer it`;
     case "generating":
       if (f.found === false) return "Nothing in your documents covers this";

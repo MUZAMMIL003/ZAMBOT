@@ -262,6 +262,13 @@ function StepDetails({ step, runs }: { step: TraceStep; runs?: SandboxRun[] | nu
               : "Scoring was not available, so the search order was used."}{" "}
             <Model served={served} />
           </p>
+          {f.kind === "analysis" && (
+            <p className="rounded-lg bg-white px-2.5 py-2 text-[11.5px] leading-relaxed">
+              {Number(f.whole) > 0
+                ? `This asks for a judgement, not a single fact, so the whole document (${Number(f.whole)} passages) was given to the writer to weigh up.`
+                : "This asks for a judgement, not a single fact, so the most useful passages were kept even where none states the answer outright."}
+            </p>
+          )}
           <ol className="space-y-1.5">
             {((f.passages as Passage[]) ?? []).map((passage, i) => (
               <PassageRow key={i} passage={passage} index={i} scoreOutOf={f.scored ? 10 : undefined} />
