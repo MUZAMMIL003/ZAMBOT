@@ -196,8 +196,10 @@ function StepDetails({ step, runs }: { step: TraceStep; runs?: SandboxRun[] | nu
           </div>
           <p className="text-[11.5px] text-muted">
             {f.changed
-              ? "Rewritten into a question that stands on its own, using the conversation so far. Your own words were searched too."
-              : "Already clear on its own, so it was searched as written."}{" "}
+              ? "A follow-up, so it was rewritten into a question that stands on its own, using the conversation so far. Your own words were searched too."
+              : f.follow_up === false
+                ? "This starts a new topic, so it was searched as written and the earlier messages were left out of the answer."
+                : "Already clear on its own, so it was searched as written."}{" "}
             <Model served={served} />
           </p>
         </div>

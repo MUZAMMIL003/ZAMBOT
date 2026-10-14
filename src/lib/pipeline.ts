@@ -188,7 +188,9 @@ export function describe(step: TraceStep): string {
         ? `Looked back over the last ${plural(n("recent_messages"), "message")}${f.has_summary ? " and the running summary" : ""}`
         : "A fresh conversation - nothing to recall";
     case "rewriting":
-      return f.changed && f.question ? `Read it as “${String(f.question)}”` : "The question was already clear on its own";
+      if (f.changed && f.question) return `A follow-up - read it as “${String(f.question)}”`;
+      if (f.follow_up === false) return "A new question - earlier messages set aside";
+      return "The question was already clear on its own";
     case "sandbox":
       return f.succeeded
         ? f.summary
