@@ -202,9 +202,8 @@ function TypingLogo({ className }: { className?: string }) {
 // --------------------------------------------------------------- the page
 export function Landing() {
   const navigate = useNavigate();
-  const { enterApp } = useAuth();
+  const { status } = useAuth();
   const [working, setWorking] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [scrolled, setScrolled] = useState(false);
 
   useEffect(() => {
@@ -214,18 +213,10 @@ export function Landing() {
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
-  const go = useCallback(async () => {
-    if (working) return;
+  const go = useCallback(() => {
     setWorking(true);
-    setError(null);
-    try {
-      await enterApp();
-      navigate("/chats");
-    } catch {
-      setError("Zambot could not start a session. Please try again.");
-      setWorking(false);
-    }
-  }, [working, enterApp, navigate]);
+    navigate(status === "signed-in" ? "/chats" : "/login");
+  }, [status, navigate]);
 
   return (
     <div id="top" className="motion-essential relative min-h-dvh text-black antialiased">
@@ -262,7 +253,7 @@ export function Landing() {
             ))}
           </nav>
           <div className="ml-auto">
-            <NavLaunch onClick={() => void go()} working={working} />
+            <NavLaunch onClick={go} working={working} />
           </div>
         </div>
       </header>
@@ -308,7 +299,7 @@ export function Landing() {
                 custom={1.3}
                 className="mt-8 flex flex-col gap-3 sm:flex-row sm:items-center"
               >
-                <Launch onClick={() => void go()} working={working} />
+                <Launch onClick={go} working={working} />
                 <a
                   href="#how"
                   className="inline-flex h-[52px] items-center justify-center gap-2 rounded-full border border-white/70 bg-white/55 px-6 text-[15.5px] font-medium shadow-sm backdrop-blur-md transition-colors hover:bg-white/85"
@@ -317,11 +308,6 @@ export function Landing() {
                   <Icon name="arrowRight" size={16} className="rotate-90" />
                 </a>
               </motion.div>
-              {error && (
-                <p role="alert" className="mt-4 text-[13px] text-danger">
-                  {error}
-                </p>
-              )}
               <motion.p
                 variants={rise}
                 initial="hidden"
@@ -428,7 +414,7 @@ export function Landing() {
               </p>
               <button
                 type="button"
-                onClick={() => void go()}
+                onClick={go}
                 disabled={working}
                 aria-label="Launch Zambot"
                 className="group mt-9 flex h-14 w-full max-w-[560px] items-center gap-1 rounded-full border border-white bg-white/90 pl-3 pr-2 text-left shadow-[0_20px_50px_-24px_rgba(60,40,110,0.45)] transition hover:bg-white disabled:cursor-wait"

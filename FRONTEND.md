@@ -23,11 +23,14 @@ client.
   wordmark. The layout and flow follow ChatGPT / Claude (sidebar, composer
   first) plus NotebookLM / ChatPDF (a document panel with highlighted
   citations).
-- **No login.** Pressing *Launch Zambot* opens a session silently. In real
-  mode the app sends one shared access key (`VITE_ACCESS_KEY`) as the
-  `X-Access-Key` header on every request; it must match `APP_ACCESS_KEY` in
-  `backend/.env`. The key ships inside the built bundle, so it is a light
-  gate, not real security.
+- **Sign-in with Supabase Auth** (`/login`): "Continue with Google" or an
+  emailed magic link, no passwords. `lib/supabase.ts` holds the client (session
+  kept and refreshed in the browser); `lib/api.ts` sends the access token as
+  `Authorization: Bearer ...` on every call; `lib/providers.tsx` tracks
+  `loading / signed-out / signed-in / not-invited / unavailable` and asks the
+  server `/me`. App routes send signed-out people to `/login?next=...` and back.
+  Each person only sees their own chats (the backend checks ownership). Demo
+  mode skips sign-in entirely.
 
 ---
 
@@ -54,7 +57,8 @@ backend, create `.env.local` (gitignored; see `.env.local.example`):
 |---|---|
 | `VITE_API_URL` | `http://127.0.0.1:8000` (the backend) |
 | `VITE_DEMO_MODE` | `false` |
-| `VITE_ACCESS_KEY` | The same value as `APP_ACCESS_KEY` in `backend/.env` |
+| `VITE_SUPABASE_URL` | The Supabase project URL (same as the backend's `SUPABASE_URL`) |
+| `VITE_SUPABASE_ANON_KEY` | The project's public anon / Publishable key (never the service key) |
 
 The backend must list the frontend's address in `FRONTEND_ORIGIN` (CORS).
 The host is pinned to `127.0.0.1` because Windows can resolve `localhost` to
@@ -106,7 +110,8 @@ OneDrive (`EINVAL readlink`).
 
 | Path | Screen |
 |---|---|
-| `/` | `Landing`: the app's pastel-glass design, turned up (see *Landing page* below); *Launch Zambot* opens the app |
+| `/` | `Landing`: the app's pastel-glass design, turned up (see *Landing page* below); *Launch Zambot* opens the app, or `/login` when signed out |
+| `/login` | `Login`: Google or email magic link; also the "check your inbox", "not on the list yet" and "server waking up" states |
 | `/chats`, `/chats/new` | `Start`: the composer-first start screen (replaces the old Home + New Chat) |
 | `/chats/:chatId` | `Conversation` |
 | `/chats/files` | `Files`: every document; tapping one opens it in its chat's panel (`state.openDocument`) |

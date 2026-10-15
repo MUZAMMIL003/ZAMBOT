@@ -9,13 +9,14 @@ import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 
 import { Sidebar } from "@/components/chat/Sidebar";
+import { ZMark } from "@/components/ui/Working";
 import { api } from "@/lib/api";
 import { ChatsProvider } from "@/lib/chats-context";
 import { useEnsureSession } from "@/lib/providers";
 import type { Chat } from "@/lib/types";
 
 export function AppShell({ children }: { children: ReactNode }) {
-  const { user, loading: authLoading } = useEnsureSession();
+  const { user, status, retry } = useEnsureSession();
   const { chatId } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
@@ -74,12 +75,28 @@ export function AppShell({ children }: { children: ReactNode }) {
     [chats, loading, refresh, deleteChat, deleteAllChats, openSidebar],
   );
 
-  if (authLoading || !user) {
+  if (!user) {
     return (
       <div className="relative grid min-h-dvh place-items-center overflow-hidden px-6 mesh-bg">
         <div className="relative flex flex-col items-center gap-3 text-center">
-          <span className="h-6 w-6 animate-spin rounded-full border-2 border-[rgb(var(--accent-bright))] border-t-transparent" />
-          <p className="text-[14px] text-muted">Opening your workspace…</p>
+          {status === "unavailable" ? (
+            <>
+              <p className="text-[15px] font-medium">Zambot's server is not answering</p>
+              <p className="max-w-[34ch] text-[13.5px] text-muted">It may be waking up after a rest. This usually takes under a minute.</p>
+              <button
+                type="button"
+                onClick={retry}
+                className="mt-2 h-11 rounded-full bg-[#2B2B30] px-6 text-[14.5px] font-medium text-white hover:bg-[#1F1F23]"
+              >
+                Try again
+              </button>
+            </>
+          ) : (
+            <>
+              <ZMark size={24} />
+              <p className="text-[14px] text-muted">Opening your workspace…</p>
+            </>
+          )}
         </div>
       </div>
     );

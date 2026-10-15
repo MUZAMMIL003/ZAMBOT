@@ -21,7 +21,7 @@ export default defineConfig({
       output: {
         // Keep the animation library out of the entry chunk so first paint is
         // not blocked by it.
-        manualChunks: { motion: ["framer-motion"] },
+        manualChunks: { motion: ["framer-motion"], auth: ["@supabase/supabase-js"] },
       },
     },
   },

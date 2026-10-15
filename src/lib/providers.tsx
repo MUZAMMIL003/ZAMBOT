@@ -5,9 +5,17 @@
  * preference onto <html data-theme>. Kept for the (unused) ThemeToggle until
  * the design settles on whether a dark theme returns.
  *
- * Auth: there is no login screen. The token lives in localStorage and is
- * verified against /auth/me on mount; when it is missing, app routes call
- * `useEnsureSession()`, which mints one silently instead of redirecting.
+ * Auth: Supabase sign-in (Google or an emailed magic link). Supabase keeps
+ * the session in the browser and refreshes it; once a session exists the
+ * server is asked who it is (/me), which also enforces the invite list.
+ *
+ *   loading      working out whether someone is signed in
+ *   signed-out   no session - app routes send them to /login
+ *   signed-in    a session the server accepted; `user` is set
+ *   not-invited  a real sign-in, but the email is not on the invite list
+ *   unavailable  the server could not be reached (Render may be waking up)
+ *
+ * Demo mode has no sign-in: the demo user is always signed in.
  */
 import {
   createContext,
@@ -19,10 +27,11 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 
 import { IS_DEMO } from "./demo";
-import { api, setToken, getToken } from "./api";
+import { api, onUnauthorized, type ApiError } from "./api";
+import { returnUrl, supabase } from "./supabase";
 import type { User } from "./types";
 
 // ------------------------------------------------------------------ theme
@@ -74,77 +83,140 @@ export function useTheme() {
 }
 
 // ------------------------------------------------------------------- auth
+export type AuthStatus = "loading" | "signed-out" | "signed-in" | "not-invited" | "unavailable";
+
 interface AuthContextValue {
   user: User | null;
-  loading: boolean;
-  /** Starts a session without a login screen. Safe to call repeatedly. */
-  enterApp: () => Promise<void>;
-  logout: () => void;
+  status: AuthStatus;
+  /** The email of the current sign-in, known even when it is not invited. */
+  email: string | null;
+  signInWithGoogle: (next?: string) => Promise<void>;
+  sendMagicLink: (email: string, next?: string) => Promise<void>;
+  /** Ask the server again, e.g. after it was unreachable. */
+  retry: () => void;
+  logout: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue>({
   user: null,
-  loading: true,
-  enterApp: async () => {},
-  logout: () => {},
+  status: "loading",
+  email: null,
+  signInWithGoogle: async () => {},
+  sendMagicLink: async () => {},
+  retry: () => {},
+  logout: async () => {},
 });
+
+const WAKE_TRIES = 4;
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [status, setStatus] = useState<AuthStatus>("loading");
+  const [email, setEmail] = useState<string | null>(null);
   const navigate = useNavigate();
+  const loadedFor = useRef<string | null>(null);
 
-  // Lets enterApp() stay referentially stable while still seeing the latest user.
-  const userRef = useRef<User | null>(null);
-  useEffect(() => {
-    userRef.current = user;
-  }, [user]);
-
-  useEffect(() => {
-    let cancelled = false;
-
-    async function restore() {
-      if (!getToken()) {
-        setLoading(false);
-        return;
-      }
+  /** Ask the server who this session belongs to; a sleeping server gets a few tries. */
+  const loadProfile = useCallback(async (sessionEmail: string | null, sessionId: string | null) => {
+    setEmail(sessionEmail);
+    for (let attempt = 1; attempt <= WAKE_TRIES; attempt++) {
       try {
         const me = await api.me();
-        if (!cancelled) setUser(me);
-      } catch {
-        setToken(null);
-      } finally {
-        if (!cancelled) setLoading(false);
+        loadedFor.current = sessionId;
+        setUser(me);
+        setStatus("signed-in");
+        return;
+      } catch (caught) {
+        const error = caught as ApiError;
+        if (error.status === 403) {
+          loadedFor.current = sessionId;
+          setUser(null);
+          setStatus("not-invited");
+          return;
+        }
+        if (error.status === 401) {
+          setUser(null);
+          setStatus("signed-out");
+          return;
+        }
+        if (attempt < WAKE_TRIES) await sleep(2500 * attempt);
       }
     }
+    setStatus("unavailable");
+  }, []);
 
-    restore();
+  useEffect(() => {
+    if (IS_DEMO) {
+      void api.me().then((me) => {
+        setUser(me);
+        setEmail(me.email);
+        setStatus("signed-in");
+      });
+      return;
+    }
+    if (!supabase) {
+      setStatus("signed-out");
+      return;
+    }
+    // Supabase reports the current session first (INITIAL_SESSION), then every
+    // change. Work is deferred out of the callback, as Supabase recommends.
+    const { data } = supabase.auth.onAuthStateChange((event, session) => {
+      setTimeout(() => {
+        if (!session) {
+          loadedFor.current = null;
+          setUser(null);
+          setEmail(null);
+          setStatus("signed-out");
+          return;
+        }
+        if (event !== "INITIAL_SESSION" && event !== "SIGNED_IN") return;
+        if (loadedFor.current === session.user.id) return;
+        void loadProfile(session.user.email ?? null, session.user.id);
+      }, 0);
+    });
+    onUnauthorized(() => void supabase?.auth.signOut());
     return () => {
-      cancelled = true;
+      data.subscription.unsubscribe();
+      onUnauthorized(null);
     };
+  }, [loadProfile]);
+
+  const signInWithGoogle = useCallback(async (next = "/chats") => {
+    if (!supabase) throw new Error("Sign-in is not set up yet.");
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: { redirectTo: returnUrl(next), queryParams: { prompt: "select_account" } },
+    });
+    if (error) throw error;
   }, []);
 
-  /**
-   * There is no login screen. Pressing "Launch Zambot" calls this, which mints a
-   * session silently - instant in demo mode, and a guest account against a
-   * real backend.
-   */
-  const enterApp = useCallback(async () => {
-    if (userRef.current) return;
-    const result = await api.login("", "");
-    setToken(result.access_token);
-    setUser(result.user);
+  const sendMagicLink = useCallback(async (address: string, next = "/chats") => {
+    if (!supabase) throw new Error("Sign-in is not set up yet.");
+    const { error } = await supabase.auth.signInWithOtp({
+      email: address.trim(),
+      options: { emailRedirectTo: returnUrl(next), shouldCreateUser: true },
+    });
+    if (error) throw error;
   }, []);
 
-  const logout = useCallback(() => {
-    setToken(null);
-    setUser(null);
+  const retry = useCallback(() => {
+    if (!supabase) return;
+    setStatus("loading");
+    void supabase.auth.getSession().then(({ data }) => {
+      if (data.session) void loadProfile(data.session.user.email ?? null, data.session.user.id);
+      else setStatus("signed-out");
+    });
+  }, [loadProfile]);
+
+  const logout = useCallback(async () => {
+    if (supabase) await supabase.auth.signOut();
     navigate("/");
   }, [navigate]);
 
   const value = useMemo(
-    () => ({ user, loading, enterApp, logout }),
-    [user, loading, enterApp, logout],
+    () => ({ user, status, email, signInWithGoogle, sendMagicLink, retry, logout }),
+    [user, status, email, signInWithGoogle, sendMagicLink, retry, logout],
   );
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
@@ -154,31 +226,21 @@ export function useAuth() {
 }
 
 /**
- * Guarantees a session for the app routes. Because there is no login screen,
- * a missing session is simply created rather than redirected away - so a
- * deep link into /chats/<id> still works on a cold browser.
+ * For the app routes: anyone not signed in (or not invited) is sent to
+ * /login, which brings them back to the page they wanted afterwards.
  */
 export function useEnsureSession() {
-  const { user, loading, enterApp } = useAuth();
+  const { user, status, retry } = useAuth();
   const navigate = useNavigate();
-  const [failed, setFailed] = useState(false);
+  const location = useLocation();
 
   useEffect(() => {
-    if (loading || user) return;
-    let cancelled = false;
-    enterApp().catch(() => {
-      if (cancelled) return;
-      // A real backend that refuses a guest session: send them back to the
-      // landing page rather than leaving a dead screen.
-      setFailed(true);
-      if (!IS_DEMO) navigate("/", { replace: true });
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [loading, user, enterApp, navigate]);
+    if (status !== "signed-out" && status !== "not-invited") return;
+    const next = `${location.pathname}${location.search}`;
+    navigate(`/login?next=${encodeURIComponent(next)}`, { replace: true });
+  }, [status, navigate, location.pathname, location.search]);
 
-  return { user, loading: loading || (!user && !failed), failed };
+  return { user, status, retry, loading: status === "loading" };
 }
 
 export function Providers({ children }: { children: ReactNode }) {

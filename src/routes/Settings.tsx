@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
 
-import { Icon } from "@/components/ui/Icon";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { ListCard, ListRow, SectionLabel } from "@/components/ui/List";
 import { IS_DEMO, resetDemo } from "@/lib/api";
@@ -84,15 +83,20 @@ export function Settings() {
             <ListCard>
               {/* Information only - there is nothing to edit yet. */}
               <div className="row-item pointer-events-none">
-                <span aria-hidden className="icon-orb">
-                  <Icon name="user" size={18} />
-                </span>
+                {user?.avatar_url ? (
+                  <img src={user.avatar_url} alt="" referrerPolicy="no-referrer" className="h-9 w-9 shrink-0 rounded-full object-cover" />
+                ) : (
+                  <span aria-hidden className="icon-orb text-[14px] font-semibold uppercase">
+                    {(user?.display_name || user?.email || "?").slice(0, 1)}
+                  </span>
+                )}
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-[15px] font-medium">
-                    {user?.display_name || "You"}
+                    {user?.display_name || user?.email?.split("@")[0] || "You"}
                   </span>
                   <span className="mt-0.5 block truncate text-[12.5px] text-muted">
-                    {user?.email || "Local user"}
+                    {user?.email}
+                    {user && !IS_DEMO && ` · signed in with ${user.auth_provider === "google" ? "Google" : "an email link"}`}
                   </span>
                 </span>
                 {IS_DEMO && (
@@ -104,10 +108,10 @@ export function Settings() {
               <ListRow
                 icon="logout"
                 label="Log out"
-                detail="Back to the start screen"
+                detail="Sign out on this device"
                 destructive
                 trailing={<span aria-hidden />}
-                onClick={logout}
+                onClick={() => void logout()}
               />
             </ListCard>
           </div>

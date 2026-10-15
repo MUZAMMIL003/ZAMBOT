@@ -4,18 +4,19 @@
  * The base URL comes from VITE_API_URL so the same build points at
  * localhost in development and at the Render service in production.
  *
- * The backend is single-user: there are no accounts, only one secret sent as
- * the X-Access-Key header on every request (VITE_ACCESS_KEY). The "session"
- * the UI keeps is local; logging in just checks the key is accepted.
+ * Every request carries the signed-in user's Supabase access token as
+ * "Authorization: Bearer ...". The backend checks it and only ever shows that
+ * person their own chats. A 401 means the session ended: the auth provider
+ * signs out and sends the user to /login.
  *
  * Render's free tier sleeps after 15 minutes: the first request after a nap can
  * take ~30s to wake the instance. `wakeBackend()` fires a cheap /health call so
  * the UI can show "waking up" instead of appearing frozen.
  */
 import { IS_DEMO, demoApi, demoStreamAnswer } from "./demo";
+import { accessToken } from "./supabase";
 import type {
   AskOptions,
-  AuthToken,
   Chat,
   ChatDocumentsStatus,
   ChatMessage,
@@ -31,18 +32,19 @@ export const API_URL = (
   import.meta.env.VITE_API_URL || "http://localhost:8000"
 ).replace(/\/$/, "");
 
-const TOKEN_KEY = "zambot.token";
-const ACCESS_KEY = (import.meta.env.VITE_ACCESS_KEY || "").trim();
-const REJECTED_KEY =
-  "The server rejected the access key. Set VITE_ACCESS_KEY in frontend/.env.local to the backend's APP_ACCESS_KEY.";
+const SESSION_ENDED = "Your session has ended. Sign in again.";
 
-const LOCAL_USER: User = {
-  id: "owner",
-  email: "",
-  display_name: "You",
-  auth_provider: "access-key",
-  created_at: new Date(0).toISOString(),
-};
+let unauthorized: (() => void) | null = null;
+
+/** Called whenever the server says the session is no longer valid. */
+export function onUnauthorized(handler: (() => void) | null) {
+  unauthorized = handler;
+}
+
+function sessionEnded(): never {
+  unauthorized?.();
+  throw new ApiError(SESSION_ENDED, 401);
+}
 
 export class ApiError extends Error {
   constructor(
@@ -61,27 +63,9 @@ export class ApiError extends Error {
 }
 
 // ----------------------------------------------------------------- token
-export function getToken(): string | null {
-  if (typeof window === "undefined") return null;
-  try {
-    return window.localStorage.getItem(TOKEN_KEY);
-  } catch {
-    return null;
-  }
-}
-
-export function setToken(token: string | null) {
-  if (typeof window === "undefined") return;
-  try {
-    if (token) window.localStorage.setItem(TOKEN_KEY, token);
-    else window.localStorage.removeItem(TOKEN_KEY);
-  } catch {
-    /* private mode - the session simply will not persist */
-  }
-}
-
-function authHeaders(extra: Record<string, string> = {}): Record<string, string> {
-  return ACCESS_KEY ? { ...extra, "X-Access-Key": ACCESS_KEY } : extra;
+async function authHeaders(extra: Record<string, string> = {}): Promise<Record<string, string>> {
+  const token = await accessToken();
+  return token ? { ...extra, Authorization: `Bearer ${token}` } : extra;
 }
 
 // ------------------------------------------------------------- transport
@@ -108,7 +92,7 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   try {
     response = await fetch(`${API_URL}${path}`, {
       ...init,
-      headers: authHeaders({
+      headers: await authHeaders({
         ...(init.body instanceof FormData
           ? {}
           : { "Content-Type": "application/json" }),
@@ -122,27 +106,16 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
     );
   }
 
-  if (response.status === 401) {
-    setToken(null);
-    throw new ApiError(REJECTED_KEY, 401);
-  }
+  if (response.status === 401) sessionEnded();
   if (!response.ok) await parseError(response);
   if (response.status === 204) return undefined as T;
   return (await response.json()) as T;
 }
 
-// ------------------------------------------------------------------ auth
-async function openSession(): Promise<AuthToken> {
-  await request<Chat[]>("/chats");
-  return { access_token: "access-key", token_type: "access-key", expires_in: 0, user: LOCAL_USER };
-}
-
+// ------------------------------------------------------------------ api
 const realApi = {
-  signup: (_email: string, _password: string, _displayName?: string) => openSession(),
-
-  login: (_email: string, _password: string) => openSession(),
-
-  me: async (): Promise<User> => (await openSession()).user,
+  /** The signed-in person, as the server sees them. 403 = not on the invite list. */
+  me: () => request<User>("/me"),
 
   // ----------------------------------------------------------------- chats
   listChats: () => request<Chat[]>("/chats"),
@@ -234,7 +207,7 @@ async function* realStreamAnswer(
 ): AsyncGenerator<StreamEvent> {
   const response = await fetch(`${API_URL}/chat/${chatId}/stream`, {
     method: "POST",
-    headers: authHeaders({ "Content-Type": "application/json" }),
+    headers: await authHeaders({ "Content-Type": "application/json" }),
     body: JSON.stringify({
       message,
       verify: true,
@@ -244,10 +217,7 @@ async function* realStreamAnswer(
     signal,
   });
 
-  if (response.status === 401) {
-    setToken(null);
-    throw new ApiError(REJECTED_KEY, 401);
-  }
+  if (response.status === 401) sessionEnded();
   if (!response.ok) await parseError(response);
   if (!response.body) throw new ApiError("The server sent no response body", 0);
 

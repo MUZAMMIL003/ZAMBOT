@@ -14,8 +14,9 @@ export interface User {
   id: string;
   email: string;
   display_name: string | null;
+  avatar_url?: string | null;
   auth_provider: string;
-  created_at: string;
+  created_at: string | null;
 }
 
 export interface AuthToken {
