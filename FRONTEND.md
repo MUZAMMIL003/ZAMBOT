@@ -31,6 +31,11 @@ client.
   server `/me`. App routes send signed-out people to `/login?next=...` and back.
   Each person only sees their own chats (the backend checks ownership). Demo
   mode skips sign-in entirely.
+- **Guests** (for now): "Continue as guest" (under the Google button) calls
+  `POST /auth/guest` for a signed guest pass, kept in localStorage
+  (`zambot.guest`) and sent like any token when nobody is signed in with
+  Supabase. Without Supabase keys the login page shows only the guest button.
+  Settings shows "Leave guest mode" with a two-tap confirm.
 
 ---
 

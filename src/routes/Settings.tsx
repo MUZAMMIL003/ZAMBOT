@@ -11,16 +11,19 @@ export function Settings() {
   const { chats, deleteAllChats } = useChats();
   const [confirmReset, setConfirmReset] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [confirmLeave, setConfirmLeave] = useState(false);
+  const guest = user?.auth_provider === "guest";
 
   // An unconfirmed first tap quietly resets.
   useEffect(() => {
-    if (!confirmReset && !confirmDelete) return;
+    if (!confirmReset && !confirmDelete && !confirmLeave) return;
     const timer = setTimeout(() => {
       setConfirmReset(false);
       setConfirmDelete(false);
+      setConfirmLeave(false);
     }, 3000);
     return () => clearTimeout(timer);
-  }, [confirmReset, confirmDelete]);
+  }, [confirmReset, confirmDelete, confirmLeave]);
 
   return (
     <div className="flex h-full flex-col">
@@ -95,8 +98,9 @@ export function Settings() {
                     {user?.display_name || user?.email?.split("@")[0] || "You"}
                   </span>
                   <span className="mt-0.5 block truncate text-[12.5px] text-muted">
-                    {user?.email}
-                    {user && !IS_DEMO && ` · signed in with ${user.auth_provider === "google" ? "Google" : "an email link"}`}
+                    {guest
+                      ? "Your chats are kept in this browser only"
+                      : `${user?.email ?? ""}${user && !IS_DEMO ? ` · signed in with ${user.auth_provider === "google" ? "Google" : "an email link"}` : ""}`}
                   </span>
                 </span>
                 {IS_DEMO && (
@@ -107,11 +111,17 @@ export function Settings() {
               </div>
               <ListRow
                 icon="logout"
-                label="Log out"
-                detail="Sign out on this device"
+                label={guest ? (confirmLeave ? "Tap again to leave" : "Leave guest mode") : "Log out"}
+                detail={guest ? "Your guest chats cannot be opened again after this" : "Sign out on this device"}
                 destructive
                 trailing={<span aria-hidden />}
-                onClick={() => void logout()}
+                onClick={() => {
+                  if (guest && !confirmLeave) {
+                    setConfirmLeave(true);
+                    return;
+                  }
+                  void logout();
+                }}
               />
             </ListCard>
           </div>

@@ -1,7 +1,9 @@
 /**
  * Sign in (/login). The app's own pastel glass: the wordmark types itself,
  * then two ways in - "Continue with Google", or an emailed magic link (no
- * password). It also covers what can happen around a sign-in:
+ * password) - and, for now, "Continue as guest": a private space without an
+ * account, kept in this browser. It also covers what can happen around a
+ * sign-in:
  *
  *   sent         the magic link is on its way - check the inbox
  *   not invited  signed in fine, but the email is not on the invite list
@@ -57,14 +59,14 @@ function friendly(error: unknown): string {
 }
 
 export function Login() {
-  const { status, email: signedInEmail, signInWithGoogle, sendMagicLink, retry } = useAuth();
+  const { status, email: signedInEmail, signInWithGoogle, sendMagicLink, continueAsGuest, retry } = useAuth();
   const [params] = useSearchParams();
   const navigate = useNavigate();
   const next = params.get("next")?.startsWith("/") ? (params.get("next") as string) : "/chats";
 
   const [email, setEmail] = useState("");
   const [sentTo, setSentTo] = useState<string | null>(null);
-  const [busy, setBusy] = useState<"google" | "email" | null>(null);
+  const [busy, setBusy] = useState<"google" | "email" | "guest" | null>(null);
   const [error, setError] = useState<string | null>(() => returnedError(params));
   const [wait, setWait] = useState(0);
 
@@ -77,6 +79,23 @@ export function Login() {
     const timer = setTimeout(() => setWait((value) => value - 1), 1000);
     return () => clearTimeout(timer);
   }, [wait]);
+
+  const guest = async () => {
+    setError(null);
+    setBusy("guest");
+    try {
+      await continueAsGuest();
+    } catch (caught) {
+      const status = (caught as { status?: number }).status;
+      const detail = caught instanceof Error ? caught.message : "";
+      setError(
+        status === 429 || status === 403
+          ? detail
+          : "Could not start a guest session. The server may be waking up - try again in a moment.",
+      );
+      setBusy(null);
+    }
+  };
 
   const google = async () => {
     setError(null);
@@ -211,53 +230,75 @@ export function Login() {
                 </button>
               </div>
             ) : (
-              <div className={cn("space-y-4", unconfigured && "pointer-events-none opacity-50")}>
-                <button
-                  type="button"
-                  onClick={() => void google()}
-                  disabled={busy !== null}
-                  className="flex h-12 w-full items-center justify-center gap-3 rounded-full border border-black/[0.07] bg-white text-[15px] font-medium shadow-sm transition hover:bg-white/80 hover:shadow disabled:cursor-wait"
-                >
-                  {busy === "google" ? <ZMark size={18} /> : <GoogleMark />}
-                  Continue with Google
-                </button>
+              <div className="space-y-4">
+                {!unconfigured && (
+                  <button
+                    type="button"
+                    onClick={() => void google()}
+                    disabled={busy !== null}
+                    className="flex h-12 w-full items-center justify-center gap-3 rounded-full border border-black/[0.07] bg-white text-[15px] font-medium shadow-sm transition hover:bg-white/80 hover:shadow disabled:cursor-wait"
+                  >
+                    {busy === "google" ? <ZMark size={18} /> : <GoogleMark />}
+                    Continue with Google
+                  </button>
+                )}
 
-                <div className="flex items-center gap-3 text-[11.5px] font-medium uppercase tracking-wider text-black/35">
-                  <span className="h-px flex-1 bg-black/[0.08]" />
-                  or
-                  <span className="h-px flex-1 bg-black/[0.08]" />
+                <div>
+                  <button
+                    type="button"
+                    onClick={() => void guest()}
+                    disabled={busy !== null}
+                    className={cn(
+                      "flex h-12 w-full items-center justify-center gap-2.5 rounded-full text-[15px] font-medium transition disabled:cursor-wait",
+                      unconfigured
+                        ? "bg-[#2B2B30] text-white shadow-[0_12px_30px_-14px_rgba(0,0,0,0.5)] hover:bg-[#1F1F23]"
+                        : "border border-white/80 bg-white/45 hover:bg-white/80",
+                    )}
+                  >
+                    {busy === "guest" ? <ZMark size={18} className={unconfigured ? "text-white" : undefined} /> : <Icon name="user" size={18} />}
+                    {busy === "guest" ? "Opening your guest space…" : "Continue as guest"}
+                  </button>
+                  <p className="mt-2 text-center text-[12px] text-black/45">No account needed · your chats stay in this browser</p>
                 </div>
 
-                <form noValidate onSubmit={(event) => void send(event)} className="space-y-2.5">
-                  <label className="sr-only" htmlFor="login-email">
-                    Email address
-                  </label>
-                  <input
-                    id="login-email"
-                    type="email"
-                    inputMode="email"
-                    autoComplete="email"
-                    value={email}
-                    onChange={(event) => setEmail(event.target.value)}
-                    placeholder="you@example.com"
-                    className="h-12 w-full rounded-full border border-black/[0.07] bg-white/80 px-5 text-[16px] outline-none transition placeholder:text-black/35 focus:border-black/20 focus:bg-white sm:text-[15px]"
-                  />
-                  <button
-                    type="submit"
-                    disabled={busy !== null}
-                    className="flex h-12 w-full items-center justify-center gap-2.5 rounded-full bg-[#2B2B30] text-[15px] font-medium text-white shadow-[0_12px_30px_-14px_rgba(0,0,0,0.5)] transition hover:bg-[#1F1F23] disabled:cursor-wait"
-                  >
-                    {busy === "email" && <ZMark size={17} className="text-white" />}
-                    {busy === "email" ? "Sending your link…" : "Email me a sign-in link"}
-                  </button>
-                </form>
+                {!unconfigured && (
+                  <>
+                    <div className="flex items-center gap-3 text-[11.5px] font-medium uppercase tracking-wider text-black/35">
+                      <span className="h-px flex-1 bg-black/[0.08]" />
+                      or
+                      <span className="h-px flex-1 bg-black/[0.08]" />
+                    </div>
+
+                    <form noValidate onSubmit={(event) => void send(event)} className="space-y-2.5">
+                      <label className="sr-only" htmlFor="login-email">
+                        Email address
+                      </label>
+                      <input
+                        id="login-email"
+                        type="email"
+                        inputMode="email"
+                        autoComplete="email"
+                        value={email}
+                        onChange={(event) => setEmail(event.target.value)}
+                        placeholder="you@example.com"
+                        className="h-12 w-full rounded-full border border-black/[0.07] bg-white/80 px-5 text-[16px] outline-none transition placeholder:text-black/35 focus:border-black/20 focus:bg-white sm:text-[15px]"
+                      />
+                      <button
+                        type="submit"
+                        disabled={busy !== null}
+                        className="flex h-12 w-full items-center justify-center gap-2.5 rounded-full bg-[#2B2B30] text-[15px] font-medium text-white shadow-[0_12px_30px_-14px_rgba(0,0,0,0.5)] transition hover:bg-[#1F1F23] disabled:cursor-wait"
+                      >
+                        {busy === "email" && <ZMark size={17} className="text-white" />}
+                        {busy === "email" ? "Sending your link…" : "Email me a sign-in link"}
+                      </button>
+                    </form>
+                  </>
+                )}
               </div>
             )}
 
-            {unconfigured && (
-              <p role="alert" className="mt-4 rounded-2xl bg-white/70 p-3 text-center text-[12.5px] leading-relaxed text-black/60">
-                Sign-in is not set up on this site yet: add VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY.
-              </p>
+            {unconfigured && !notInvited && !sentTo && (
+              <p className="mt-4 text-center text-[12.5px] text-black/45">Google and email sign-in are coming soon.</p>
             )}
             {error && (
               <p role="alert" className="mt-4 rounded-2xl border border-danger/20 bg-white/70 p-3 text-center text-[13px] text-danger">
@@ -266,7 +307,12 @@ export function Login() {
             )}
           </div>
 
-          <p className="mt-7 text-center text-[12px] text-black/40">No password needed · Free</p>
+          <p className="mt-7 text-center text-[12px] text-black/40">
+            No password needed · Free ·{" "}
+            <Link to="/privacy" className="underline-offset-2 hover:text-black/70 hover:underline">
+              Privacy
+            </Link>
+          </p>
         </motion.div>
       </main>
     </div>

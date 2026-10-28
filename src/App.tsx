@@ -11,6 +11,7 @@ const Conversation = lazy(() =>
 );
 const Files = lazy(() => import("@/routes/Files").then((m) => ({ default: m.Files })));
 const Login = lazy(() => import("@/routes/Login").then((m) => ({ default: m.Login })));
+const Privacy = lazy(() => import("@/routes/Privacy").then((m) => ({ default: m.Privacy })));
 const Settings = lazy(() =>
   import("@/routes/Settings").then((m) => ({ default: m.Settings })),
 );
@@ -36,6 +37,14 @@ export function App() {
         element={
           <Suspense fallback={<div className="min-h-dvh mesh-bg" />}>
             <Login />
+          </Suspense>
+        }
+      />
+      <Route
+        path="/privacy"
+        element={
+          <Suspense fallback={<div className="min-h-dvh mesh-bg" />}>
+            <Privacy />
           </Suspense>
         }
       />

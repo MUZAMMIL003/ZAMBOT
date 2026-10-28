@@ -15,6 +15,10 @@
  *   not-invited  a real sign-in, but the email is not on the invite list
  *   unavailable  the server could not be reached (Render may be waking up)
  *
+ * Guests: "Continue as guest" gets a guest pass from the server - a private
+ * space without an account, kept in this browser - and counts as signed in.
+ * A Supabase sign-in always wins over a guest pass.
+ *
  * Demo mode has no sign-in: the demo user is always signed in.
  */
 import {
@@ -30,7 +34,7 @@ import {
 import { useLocation, useNavigate } from "react-router-dom";
 
 import { IS_DEMO } from "./demo";
-import { api, onUnauthorized, type ApiError } from "./api";
+import { api, guestToken, onUnauthorized, setGuestToken, type ApiError } from "./api";
 import { returnUrl, supabase } from "./supabase";
 import type { User } from "./types";
 
@@ -92,6 +96,8 @@ interface AuthContextValue {
   email: string | null;
   signInWithGoogle: (next?: string) => Promise<void>;
   sendMagicLink: (email: string, next?: string) => Promise<void>;
+  /** Start a private guest space, no account needed. */
+  continueAsGuest: () => Promise<void>;
   /** Ask the server again, e.g. after it was unreachable. */
   retry: () => void;
   logout: () => Promise<void>;
@@ -103,6 +109,7 @@ const AuthContext = createContext<AuthContextValue>({
   email: null,
   signInWithGoogle: async () => {},
   sendMagicLink: async () => {},
+  continueAsGuest: async () => {},
   retry: () => {},
   logout: async () => {},
 });
@@ -155,31 +162,53 @@ function AuthProvider({ children }: { children: ReactNode }) {
       });
       return;
     }
-    if (!supabase) {
+    const signedOut = () => {
+      loadedFor.current = null;
+      setUser(null);
+      setEmail(null);
       setStatus("signed-out");
-      return;
+    };
+    // No Supabase session: a saved guest pass still counts as signed in.
+    const fallBack = () => {
+      if (guestToken()) void loadProfile(null, "guest");
+      else signedOut();
+    };
+    onUnauthorized(() => {
+      setGuestToken(null);
+      if (supabase) void supabase.auth.signOut();
+      signedOut();
+    });
+    if (!supabase) {
+      fallBack();
+      return () => onUnauthorized(null);
     }
     // Supabase reports the current session first (INITIAL_SESSION), then every
     // change. Work is deferred out of the callback, as Supabase recommends.
     const { data } = supabase.auth.onAuthStateChange((event, session) => {
       setTimeout(() => {
         if (!session) {
-          loadedFor.current = null;
-          setUser(null);
-          setEmail(null);
-          setStatus("signed-out");
+          if (event === "SIGNED_OUT") signedOut();
+          else fallBack();
           return;
         }
         if (event !== "INITIAL_SESSION" && event !== "SIGNED_IN") return;
         if (loadedFor.current === session.user.id) return;
+        setGuestToken(null);
         void loadProfile(session.user.email ?? null, session.user.id);
       }, 0);
     });
-    onUnauthorized(() => void supabase?.auth.signOut());
     return () => {
       data.subscription.unsubscribe();
       onUnauthorized(null);
     };
+  }, [loadProfile]);
+
+  const continueAsGuest = useCallback(async () => {
+    const pass = await api.startGuest();
+    setGuestToken(pass.access_token);
+    loadedFor.current = null;
+    setStatus("loading");
+    await loadProfile(null, "guest");
   }, [loadProfile]);
 
   const signInWithGoogle = useCallback(async (next = "/chats") => {
@@ -201,22 +230,31 @@ function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const retry = useCallback(() => {
-    if (!supabase) return;
     setStatus("loading");
+    if (!supabase) {
+      if (guestToken()) void loadProfile(null, "guest");
+      else setStatus("signed-out");
+      return;
+    }
     void supabase.auth.getSession().then(({ data }) => {
       if (data.session) void loadProfile(data.session.user.email ?? null, data.session.user.id);
+      else if (guestToken()) void loadProfile(null, "guest");
       else setStatus("signed-out");
     });
   }, [loadProfile]);
 
   const logout = useCallback(async () => {
+    setGuestToken(null);
+    loadedFor.current = null;
+    setUser(null);
+    setStatus("signed-out");
     if (supabase) await supabase.auth.signOut();
     navigate("/");
   }, [navigate]);
 
   const value = useMemo(
-    () => ({ user, status, email, signInWithGoogle, sendMagicLink, retry, logout }),
-    [user, status, email, signInWithGoogle, sendMagicLink, retry, logout],
+    () => ({ user, status, email, signInWithGoogle, sendMagicLink, continueAsGuest, retry, logout }),
+    [user, status, email, signInWithGoogle, sendMagicLink, continueAsGuest, retry, logout],
   );
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

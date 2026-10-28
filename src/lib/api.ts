@@ -63,8 +63,31 @@ export class ApiError extends Error {
 }
 
 // ----------------------------------------------------------------- token
+/**
+ * A guest pass: a private space without an account, issued by the server and
+ * kept in this browser. Used whenever nobody is signed in with Supabase.
+ */
+const GUEST_KEY = "zambot.guest";
+
+export function guestToken(): string | null {
+  try {
+    return window.localStorage.getItem(GUEST_KEY);
+  } catch {
+    return null;
+  }
+}
+
+export function setGuestToken(token: string | null) {
+  try {
+    if (token) window.localStorage.setItem(GUEST_KEY, token);
+    else window.localStorage.removeItem(GUEST_KEY);
+  } catch {
+    /* private mode - the guest pass lasts until the tab closes */
+  }
+}
+
 async function authHeaders(extra: Record<string, string> = {}): Promise<Record<string, string>> {
-  const token = await accessToken();
+  const token = (await accessToken()) ?? guestToken();
   return token ? { ...extra, Authorization: `Bearer ${token}` } : extra;
 }
 
@@ -116,6 +139,9 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
 const realApi = {
   /** The signed-in person, as the server sees them. 403 = not on the invite list. */
   me: () => request<User>("/me"),
+
+  /** A new guest pass from the server. */
+  startGuest: () => request<{ access_token: string; user: User }>("/auth/guest", { method: "POST" }),
 
   // ----------------------------------------------------------------- chats
   listChats: () => request<Chat[]>("/chats"),

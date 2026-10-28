@@ -18,7 +18,7 @@
  */
 import { motion, useInView, useScroll, useTransform, type Variants } from "framer-motion";
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 
 import { FeatureCells } from "@/components/landing/FeatureCells";
 import { HeroDemo } from "@/components/landing/HeroDemo";
@@ -442,7 +442,12 @@ export function Landing() {
             <img src="/logo.svg" alt="ZAMBOT" className="h-[14px] w-auto opacity-80" />
             <span className="text-[13px] text-black/40">© 2026</span>
           </div>
-          <p className="text-[13px] text-black/40">Built on free tiers · Supabase · Groq · Gemini · E2B</p>
+          <p className="text-[13px] text-black/40">
+            Built on free tiers · Supabase · Groq · Gemini · E2B ·{" "}
+            <Link to="/privacy" className="underline-offset-2 hover:text-black/70 hover:underline">
+              Privacy
+            </Link>
+          </p>
         </div>
       </footer>
     </div>
