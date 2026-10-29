@@ -7,7 +7,7 @@
  *                  circle and draws a tick when the step is done (a cross on
  *                  error, a dotted ring while waiting its turn)
  *   ProgressRing : a ring filling to a percentage, with the number in the
- *                  middle and an arc still moving while work continues
+ *                  middle
  *
  * Monochrome and exact - motion only where work is actually going on.
  */
@@ -141,7 +141,6 @@ export function ProgressRing({
   state?: WorkState;
   className?: string;
 }) {
-  const still = Boolean(useReducedMotion());
   const radius = 24;
   const length = 2 * Math.PI * radius;
   const value = Math.max(0, Math.min(100, percent));
@@ -162,22 +161,6 @@ export function ProgressRing({
           animate={{ strokeDashoffset: length * (1 - value / 100) }}
           transition={{ duration: 0.9, ease: EASE }}
         />
-        {state === "working" && !still && (
-          <motion.circle
-            cx="28"
-            cy="28"
-            r={radius + 5.5}
-            fill="none"
-            stroke="currentColor"
-            strokeOpacity="0.35"
-            strokeWidth="1.2"
-            strokeLinecap="round"
-            strokeDasharray={`${(radius + 5.5) * 0.9} ${length * 2}`}
-            animate={{ rotate: 360 }}
-            transition={{ duration: 2.4, repeat: Infinity, ease: "linear" }}
-            style={{ transformOrigin: "28px 28px" }}
-          />
-        )}
       </svg>
       <span className="relative font-mono text-[13px] font-medium tabular-nums tracking-tight">
         {state === "error" ? "!" : `${Math.round(value)}%`}
