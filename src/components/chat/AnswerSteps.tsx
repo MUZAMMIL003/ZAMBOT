@@ -217,6 +217,21 @@ function StepDetails({ step, runs }: { step: TraceStep; runs?: SandboxRun[] | nu
       );
     case "retrieving": {
       const words = (f.words as string[]) ?? [];
+      if (f.mode === "whole") {
+        return (
+          <div className="space-y-2">
+            <p className="text-[11.5px] text-muted">
+              The document is short, so every passage ({Number(f.candidates ?? 0).toLocaleString()}, about{" "}
+              {Number(f.tokens ?? 0).toLocaleString()} tokens) went to the writer. Nothing is missed and no search step is needed.
+            </p>
+            <ol className="space-y-1.5">
+              {((f.passages as Passage[]) ?? []).map((passage, i) => (
+                <PassageRow key={i} passage={passage} index={i} />
+              ))}
+            </ol>
+          </div>
+        );
+      }
       return (
         <div className="space-y-2.5">
           <div className="flex flex-wrap items-center gap-1.5 text-[11.5px]">

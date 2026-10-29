@@ -30,7 +30,8 @@ const SECTIONS: { title: string; body: string[] }[] = [
     title: "Services that process it",
     body: [
       "Supabase stores your account, files and chats.",
-      "E2B runs a short-lived, sealed sandbox that reads your files.",
+      "Scanned pages are read by Google Gemini from the page image.",
+      "E2B runs a short-lived, sealed sandbox for spreadsheet calculations.",
       "Google Gemini and Groq read the relevant passages to write each answer.",
       "Upstash keeps short-lived working data, such as the last few messages of a chat.",
       "Vercel and Render host the website and the server.",

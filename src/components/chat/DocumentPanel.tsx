@@ -662,7 +662,7 @@ function SourcesView({
                   >
                     <Working state={document.status === "ready" ? "done" : document.status === "failed" ? "error" : "working"} size={14} />
                     {showing === document.id ? "Hide the steps" : "How it was read"}
-                    {document.used_recipe ? " · saved recipe" : document.used_fallback ? " · basic reader" : ""}
+                    {document.extraction_method === "direct+ai" ? " · scanned pages read by AI" : ""}
                   </button>
                 )}
                 {document.status === "failed" && (

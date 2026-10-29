@@ -19,7 +19,7 @@ export const PHASES: { key: PhaseKey; title: string; doing: string; blurb: strin
     key: "inspect",
     title: "Inspect",
     doing: "Inspecting",
-    blurb: "A throwaway sandbox opens the file and measures it: pages, text, tables, scanned pages.",
+    blurb: "The file is opened and measured in a moment: pages, text, tables, and any scanned pages.",
     mode: "inspect",
     weight: 15,
   },
@@ -27,7 +27,7 @@ export const PHASES: { key: PhaseKey; title: string; doing: string; blurb: strin
     key: "extract",
     title: "Extract",
     doing: "Extracting",
-    blurb: "A script written for this exact file pulls out the text, headings and tables. It only counts if it passes the quality checks.",
+    blurb: "Text, headings and tables are read straight from the file. Scanned pages are read by AI from the page image.",
     mode: "extract",
     weight: 30,
   },
@@ -153,6 +153,8 @@ export const number = (value: unknown) => (typeof value === "number" ? value.toL
 export const plural = (count: number, word: string) => `${count.toLocaleString()} ${word}${count === 1 ? "" : "s"}`;
 
 export const METHOD: Record<string, string> = {
+  direct: "Read directly",
+  "direct+ai": "Read directly, scanned pages by AI",
   recipe: "Saved recipe",
   generated: "Custom script",
   basic: "Basic reader",
@@ -199,6 +201,7 @@ export function describe(step: TraceStep): string {
         : `The calculation did not work after ${plural(n("runs"), "try")} - used the text instead`;
     case "retrieving": {
       if (!("candidates" in f)) return "";
+      if (f.mode === "whole") return `Short enough to read in full - all ${plural(n("candidates"), "passage")}, no search needed`;
       const parts = [];
       if (n("by_meaning")) parts.push(`${n("by_meaning")} by meaning`);
       if (n("by_keyword")) parts.push(`${n("by_keyword")} by exact words`);
@@ -214,7 +217,7 @@ export function describe(step: TraceStep): string {
     case "generating":
       if (f.found === false) return "Nothing in your documents covers this";
       if (!("passages" in f)) return "";
-      return `Wrote from ${plural(n("passages"), "passage")}${n("citations") ? ` with ${plural(n("citations"), "citation")}` : ""}`;
+      return `Wrote from ${f.whole_document ? "the whole document" : plural(n("passages"), "passage")}${n("citations") ? ` with ${plural(n("citations"), "citation")}` : ""}`;
     case "verifying":
       if (f.verified === true) return `Every claim matched ${plural(n("checked"), "cited passage")}`;
       if (f.verified === false) return "Some claims could not be matched to the source";

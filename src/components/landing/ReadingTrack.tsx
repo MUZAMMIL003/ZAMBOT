@@ -13,8 +13,8 @@ import { cn } from "@/lib/utils";
 
 const STATIONS = [
   { title: "Upload", body: "The original is kept in private storage, so you can open it again any time.", spec: "Supabase storage", weight: 5 },
-  { title: "Inspect", body: "A throwaway sandbox opens the file and measures it: pages, text, tables, scans.", spec: "E2B sandbox", weight: 15 },
-  { title: "Extract", body: "A script is written for this exact file. The text only counts if it passes the checks.", spec: "Up to 3 tries", weight: 30 },
+  { title: "Inspect", body: "The file is opened and measured: pages, text, tables, and any scanned pages.", spec: "In a moment", weight: 15 },
+  { title: "Extract", body: "Text, headings and tables are read straight from the file. Scanned pages are read by AI.", spec: "Scans included", weight: 30 },
   { title: "Split", body: "The text is cut into passages small enough to quote, each tagged with its page.", spec: "≈500 tokens each", weight: 10 },
   { title: "Map the meaning", body: "Each passage becomes 768 numbers, so a question finds it even in other words.", spec: "768 dimensions", weight: 30 },
   { title: "File it away", body: "Everything is saved to search by meaning and by the exact words.", spec: "Postgres · pgvector", weight: 10 },

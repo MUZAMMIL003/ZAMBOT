@@ -289,7 +289,7 @@ export function Landing() {
                 custom={1.15}
                 className="mt-6 max-w-[33rem] text-[17px] leading-[1.6] text-black/60 sm:text-[18px]"
               >
-                Zambot reads your PDFs, Word files and spreadsheets in a sealed sandbox, then answers in plain words -
+                Zambot reads your PDFs, Word files and spreadsheets in seconds, then answers in plain words -
                 every claim pinned to the passage and page it came from.
               </motion.p>
               <motion.div
@@ -349,7 +349,7 @@ export function Landing() {
         <section id="how" className="scroll-mt-20">
           <div className="mx-auto max-w-[1240px] px-5 py-20 sm:px-8 lg:py-28">
             <Heading label="How it reads" title="Read properly." muted="Not skimmed.">
-              Before you ask anything, every file goes through six steps in its own sealed sandbox. Later you can open any
+              Before you ask anything, every file goes through six quick steps, and scanned pages are read by AI. Later you can open any
               of them and see exactly what happened - down to the code that ran.
             </Heading>
             <div className="mt-12 lg:mt-14">
