@@ -17,7 +17,9 @@
  *
  * Guests: "Continue as guest" gets a guest pass from the server - a private
  * space without an account, kept in this browser - and counts as signed in.
- * A Supabase sign-in always wins over a guest pass.
+ * A Supabase sign-in always wins over a guest pass. When someone signs in
+ * while a guest pass is still in the browser, the guest chats are moved into
+ * the account first, so nothing made as a guest is lost.
  *
  * Demo mode has no sign-in: the demo user is always signed in.
  */
@@ -100,6 +102,8 @@ interface AuthContextValue {
   continueAsGuest: () => Promise<void>;
   /** Ask the server again, e.g. after it was unreachable. */
   retry: () => void;
+  /** Quietly re-read the profile, e.g. today's usage after an upload. */
+  refreshUser: () => Promise<void>;
   logout: () => Promise<void>;
 }
 
@@ -111,11 +115,26 @@ const AuthContext = createContext<AuthContextValue>({
   sendMagicLink: async () => {},
   continueAsGuest: async () => {},
   retry: () => {},
+  refreshUser: async () => {},
   logout: async () => {},
 });
 
 const WAKE_TRIES = 4;
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+/**
+ * Move a leftover guest pass's chats into the signed-in account. A pass the
+ * server refuses is dropped; a network hiccup keeps it for the next visit.
+ */
+async function claimGuestChats(pass: string) {
+  try {
+    await api.claimGuest(pass);
+    setGuestToken(null);
+  } catch (caught) {
+    const status = (caught as ApiError).status;
+    if (status >= 400 && status < 500) setGuestToken(null);
+  }
+}
 
 function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
@@ -124,12 +143,16 @@ function AuthProvider({ children }: { children: ReactNode }) {
   const navigate = useNavigate();
   const loadedFor = useRef<string | null>(null);
 
-  /** Ask the server who this session belongs to; a sleeping server gets a few tries. */
-  const loadProfile = useCallback(async (sessionEmail: string | null, sessionId: string | null) => {
+  /**
+   * Ask the server who this session belongs to; a sleeping server gets a few
+   * tries. `guestPass` is a guest pass to fold into this account first.
+   */
+  const loadProfile = useCallback(async (sessionEmail: string | null, sessionId: string | null, guestPass: string | null = null) => {
     setEmail(sessionEmail);
     for (let attempt = 1; attempt <= WAKE_TRIES; attempt++) {
       try {
         const me = await api.me();
+        if (guestPass) await claimGuestChats(guestPass);
         loadedFor.current = sessionId;
         setUser(me);
         setStatus("signed-in");
@@ -193,8 +216,7 @@ function AuthProvider({ children }: { children: ReactNode }) {
         }
         if (event !== "INITIAL_SESSION" && event !== "SIGNED_IN") return;
         if (loadedFor.current === session.user.id) return;
-        setGuestToken(null);
-        void loadProfile(session.user.email ?? null, session.user.id);
+        void loadProfile(session.user.email ?? null, session.user.id, guestToken());
       }, 0);
     });
     return () => {
@@ -237,11 +259,19 @@ function AuthProvider({ children }: { children: ReactNode }) {
       return;
     }
     void supabase.auth.getSession().then(({ data }) => {
-      if (data.session) void loadProfile(data.session.user.email ?? null, data.session.user.id);
+      if (data.session) void loadProfile(data.session.user.email ?? null, data.session.user.id, guestToken());
       else if (guestToken()) void loadProfile(null, "guest");
       else setStatus("signed-out");
     });
   }, [loadProfile]);
+
+  const refreshUser = useCallback(async () => {
+    try {
+      setUser(await api.me());
+    } catch {
+      /* the next full load will catch up */
+    }
+  }, []);
 
   const logout = useCallback(async () => {
     setGuestToken(null);
@@ -253,8 +283,8 @@ function AuthProvider({ children }: { children: ReactNode }) {
   }, [navigate]);
 
   const value = useMemo(
-    () => ({ user, status, email, signInWithGoogle, sendMagicLink, continueAsGuest, retry, logout }),
-    [user, status, email, signInWithGoogle, sendMagicLink, continueAsGuest, retry, logout],
+    () => ({ user, status, email, signInWithGoogle, sendMagicLink, continueAsGuest, retry, refreshUser, logout }),
+    [user, status, email, signInWithGoogle, sendMagicLink, continueAsGuest, retry, refreshUser, logout],
   );
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

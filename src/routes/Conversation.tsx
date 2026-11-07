@@ -10,6 +10,8 @@
  *  - Answers cite passages; any citation, source card or key fact opens the
  *    document panel at that page with the passage highlighted.
  *  - Sources can be switched off per chat; answers then ignore them.
+ *  - Plan limits (a guest's file size, uploads, questions, calculations) show
+ *    as a friendly card with "Sign in with Google", not as a red error.
  */
 import { AnimatePresence, motion } from "framer-motion";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -19,6 +21,7 @@ import { BriefCard } from "@/components/chat/BriefCard";
 import { Composer, type ComposerHandle } from "@/components/chat/Composer";
 import { DocumentPanel, type PanelFocus, type PanelTab } from "@/components/chat/DocumentPanel";
 import { FileDropZone } from "@/components/chat/FileDropZone";
+import { GuestLimitCard } from "@/components/chat/GuestUpsell";
 import { LiveAnswerSteps } from "@/components/chat/AnswerSteps";
 import { Message, type DisplayMessage } from "@/components/chat/Message";
 import { Icon } from "@/components/ui/Icon";
@@ -26,12 +29,15 @@ import { PageHeader } from "@/components/ui/PageHeader";
 import { Skeleton, SkeletonBubble } from "@/components/ui/Skeleton";
 import { ApiError, api, streamAnswer } from "@/lib/api";
 import { useChats } from "@/lib/chats-context";
+import { guestUploadHint, useGuestPlan } from "@/lib/plan";
+import { useAuth } from "@/lib/providers";
 import type {
   Chat,
   DocumentBrief,
   DocumentRecord,
   DocumentStatus,
   KeyFact,
+  PlanLimits,
   SandboxRun,
   Source,
   TraceStep,
@@ -49,6 +55,12 @@ function pollDelay(polls: number, documents: DocumentRecord[]): number {
   return polls < 15 ? POLL_MS : polls < 45 ? 4000 : 6000;
 }
 const PROCESSING: DocumentStatus[] = ["uploaded", "extracting", "analyzing"];
+const MEGABYTE = 1024 * 1024;
+
+/** The plan's size limit for this file, in MB (Excel files have a smaller one). */
+function fileLimitMb(limits: PlanLimits, name: string): number {
+  return /\.xlsx$/i.test(name) ? limits.sheet_file_mb : limits.file_mb;
+}
 
 interface Queued {
   id: string;
@@ -98,6 +110,8 @@ export function Conversation() {
   const handoff = useRef(location.state);
   handoff.current = location.state;
   const { refresh, deleteChat } = useChats();
+  const { refreshUser } = useAuth();
+  const { guest, limits, usage } = useGuestPlan();
 
   const [chat, setChat] = useState<Chat | null>(null);
   const [documents, setDocuments] = useState<DocumentRecord[]>([]);
@@ -109,6 +123,8 @@ export function Conversation() {
   const [liveSteps, setLiveSteps] = useState<TraceStep[]>([]);
   const [streamingId, setStreamingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  /** A guest limit that was reached - shown as the sign-in card. */
+  const [limitNote, setLimitNote] = useState<string | null>(null);
   const [queue, setQueue] = useState<Queued[]>([]);
   const [uploading, setUploading] = useState<{ name: string; extension: string }[]>([]);
 
@@ -300,6 +316,7 @@ export function Conversation() {
     async (text: string, opts: { regenerate?: boolean; queuedId?: string } = {}) => {
       if (busy) return;
       setError(null);
+      setLimitNote(null);
 
       const assistantId = `local-assistant-${Date.now()}`;
       setMessages((current) => {
@@ -427,7 +444,8 @@ export function Conversation() {
               void refresh();
               break;
             case "error":
-              throw new ApiError(event.detail, 500);
+              // A plan limit (code "limit") is reported like the server's 429.
+              throw new ApiError(event.detail, event.code === "limit" ? 429 : 500);
           }
         }
       } catch (caught) {
@@ -435,7 +453,8 @@ export function Conversation() {
         if (e.name === "AbortError" || controller.signal.aborted) {
           if (controller.signal.reason !== LEFT_CHAT) upsert({ content: buffer || "(stopped)", streaming: false });
         } else {
-          setError(e.message || "The answer could not be generated.");
+          if (guest && e.status === 429) setLimitNote(e.message);
+          else setError(e.message || "The answer could not be generated.");
           setMessages((c) => c.filter((m) => m.id !== assistantId));
         }
       } finally {
@@ -443,21 +462,45 @@ export function Conversation() {
         setStage(undefined);
         setStreamingId(null);
         abortRef.current = null;
+        if (guest) void refreshUser();
       }
     },
-    [busy, chatId, excluded, readyDocs, refresh],
+    [busy, chatId, excluded, readyDocs, refresh, guest, refreshUser],
+  );
+
+  /** Limit problems become the sign-in card for guests; everything else stays an error. */
+  const report = useCallback(
+    (limited: string[], other: string[]) => {
+      if (guest && limited.length) setLimitNote(limited.join(" · "));
+      const errors = guest ? other : [...limited, ...other];
+      if (errors.length) setError(errors.join(" · "));
+    },
+    [guest],
   );
 
   const attach = useCallback(
     async (files: File[]) => {
       setError(null);
-      setUploading(files.map((file) => ({ name: file.name, extension: file.name.split(".").pop()?.toLowerCase() ?? "" })));
+      setLimitNote(null);
+      // Too-big files are stopped here, before they are sent over the network.
+      const tooBig = limits ? files.filter((file) => file.size > fileLimitMb(limits, file.name) * MEGABYTE) : [];
+      const local = tooBig.map(
+        (file) => `${file.name}: larger than ${fileLimitMb(limits!, file.name)} MB${guest ? ", the guest limit" : ""}`,
+      );
+      const sending = files.filter((file) => !tooBig.includes(file));
+      if (!sending.length) {
+        report(local, []);
+        return false;
+      }
+      setUploading(sending.map((file) => ({ name: file.name, extension: file.name.split(".").pop()?.toLowerCase() ?? "" })));
       try {
-        const result = await api.uploadDocuments(chatId, files);
+        const result = await api.uploadDocuments(chatId, sending);
         if (result.documents.length) setDocuments((c) => [...c, ...result.documents]);
-        if (result.skipped.length) {
-          setError(result.skipped.map((s) => `${s.filename}: ${s.reason}`).join(" · "));
-        }
+        const line = (s: { filename: string; reason: string }) => `${s.filename}: ${s.reason}`;
+        report(
+          [...local, ...result.skipped.filter((s) => s.limit).map(line)],
+          result.skipped.filter((s) => !s.limit).map(line),
+        );
         await refresh();
         return result.documents.length > 0;
       } catch (caught) {
@@ -465,9 +508,10 @@ export function Conversation() {
         return false;
       } finally {
         setUploading([]);
+        if (guest) void refreshUser();
       }
     },
-    [chatId, refresh],
+    [chatId, refresh, limits, guest, report, refreshUser],
   );
 
   /** Hold a question until the documents are read. */
@@ -689,6 +733,15 @@ export function Conversation() {
           </div>
         </div>
 
+        {/* Right above the composer, so it is seen however long the thread is. */}
+        {limitNote && (
+          <div className="shrink-0 px-3 pt-2 lg:px-6">
+            <div className="mx-auto max-w-3xl">
+              <GuestLimitCard message={limitNote} onDismiss={() => setLimitNote(null)} />
+            </div>
+          </div>
+        )}
+
         <Composer
           ref={composer}
           onSubmit={(text, files) => void submit(text, files)}
@@ -700,6 +753,7 @@ export function Conversation() {
           placeholder={
             processing ? "Ask while it reads…" : ready ? "Ask a question…" : "Attach a document to start"
           }
+          footnote={guestUploadHint(limits, usage)}
         />
       </FileDropZone>
 

@@ -143,6 +143,13 @@ const realApi = {
   /** A new guest pass from the server. */
   startGuest: () => request<{ access_token: string; user: User }>("/auth/guest", { method: "POST" }),
 
+  /** After a Google sign-in: move this browser's guest chats into the account. */
+  claimGuest: (guestToken: string) =>
+    request<{ moved: number }>("/auth/guest/claim", {
+      method: "POST",
+      body: JSON.stringify({ guest_token: guestToken }),
+    }),
+
   // ----------------------------------------------------------------- chats
   listChats: () => request<Chat[]>("/chats"),
 

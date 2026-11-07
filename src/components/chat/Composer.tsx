@@ -70,6 +70,8 @@ interface ComposerProps {
   /** `hero` = the large centred composer on the start screen. */
   variant?: "dock" | "hero";
   autoFocus?: boolean;
+  /** A quiet line under the box, e.g. what a guest can upload. */
+  footnote?: string | null;
 }
 
 export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Composer(
@@ -83,6 +85,7 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Compo
     placeholder = "Ask me something…",
     variant = "dock",
     autoFocus = false,
+    footnote = null,
   },
   ref,
 ) {
@@ -379,6 +382,7 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Compo
             )}
           </div>
         </div>
+        {footnote && <p className="px-4 text-center text-[11.5px] text-[rgb(var(--text))]/45">{footnote}</p>}
       </div>
     </div>
   );

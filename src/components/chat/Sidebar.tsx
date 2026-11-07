@@ -9,12 +9,21 @@ import { AnimatePresence, motion } from "framer-motion";
 import { useEffect, useMemo, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 
+import { GuestSidebarCard } from "@/components/chat/GuestUpsell";
 import { Icon, type IconName } from "@/components/ui/Icon";
 import { SkeletonRows } from "@/components/ui/Skeleton";
 import type { Chat } from "@/lib/types";
 import { cn, relativeTime } from "@/lib/utils";
 
 const CONFIRM_MS = 3000;
+const DAY_MS = 86_400_000;
+
+/** "deleted in 2 days" for a guest chat; nothing for a kept one. */
+function deletedIn(chat: Chat): string | null {
+  if (!chat.expires_at) return null;
+  const days = Math.ceil((new Date(chat.expires_at).getTime() - Date.now()) / DAY_MS);
+  return days <= 1 ? "deleted within a day" : `deleted in ${days} days`;
+}
 
 interface SidebarProps {
   chats: Chat[];
@@ -187,6 +196,7 @@ function SidebarContent({
                       {chat.status === "pending"
                         ? "Awaiting a document"
                         : `${chat.document_count} file${chat.document_count === 1 ? "" : "s"} · ${relativeTime(chat.last_message_at || chat.updated_at)}`}
+                      {deletedIn(chat) && ` · ${deletedIn(chat)}`}
                     </span>
                   </Link>
                   <button
@@ -216,6 +226,8 @@ function SidebarContent({
           </ul>
         )}
       </nav>
+
+      <GuestSidebarCard />
 
       <div className="shrink-0 space-y-0.5 border-t border-white/50 px-3 py-3 safe-b">
         <FootLink to="/chats/files" icon="folder" label="Your files" active={pathname === "/chats/files"} />

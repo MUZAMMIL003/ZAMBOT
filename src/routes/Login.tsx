@@ -17,6 +17,7 @@ import { Link, useNavigate, useSearchParams } from "react-router-dom";
 
 import { AnimatedLogo } from "@/components/ui/AnimatedLogo";
 import { Aurora } from "@/components/ui/Aurora";
+import { GoogleMark } from "@/components/ui/GoogleMark";
 import { Icon } from "@/components/ui/Icon";
 import { ZMark } from "@/components/ui/Working";
 import { IS_DEMO } from "@/lib/demo";
@@ -27,17 +28,6 @@ import { cn } from "@/lib/utils";
 const EASE = [0.22, 1, 0.36, 1] as const;
 const RESEND_SECONDS = 30;
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
-function GoogleMark() {
-  return (
-    <svg viewBox="0 0 48 48" width="19" height="19" aria-hidden>
-      <path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3 0 5.8 1.1 7.9 3l5.7-5.7C34 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.4-.4-3.5z" />
-      <path fill="#FF3D00" d="m6.3 14.7 6.6 4.8C14.7 15.1 19 12 24 12c3 0 5.8 1.1 7.9 3l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z" />
-      <path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.1 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-7.9l-6.5 5C9.5 39.6 16.2 44 24 44z" />
-      <path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.2-2.2 4.2-4.1 5.6l6.2 5.2C37 39.2 44 34 44 24c0-1.3-.1-2.4-.4-3.5z" />
-    </svg>
-  );
-}
 
 /** Errors Supabase hands back in the address after Google or an old link. */
 function returnedError(params: URLSearchParams): string | null {
@@ -53,7 +43,7 @@ function returnedError(params: URLSearchParams): string | null {
 function friendly(error: unknown): string {
   const message = error instanceof Error ? error.message : String(error);
   if (/rate limit|too many|seconds/i.test(message)) return "Too many sign-in emails just now. Wait a minute and try again.";
-  if (/provider is not enabled|unsupported provider/i.test(message)) return "Google sign-in is not switched on yet. Use the email link for now.";
+  if (/provider is not enabled|unsupported provider/i.test(message)) return "Google sign-in is not switched on yet. Continue as a guest for now.";
   if (/not set up/i.test(message)) return message;
   return "Sign-in did not go through. Please try again.";
 }
@@ -258,7 +248,9 @@ export function Login() {
                     {busy === "guest" ? <ZMark size={18} className={unconfigured ? "text-white" : undefined} /> : <Icon name="user" size={18} />}
                     {busy === "guest" ? "Opening your guest space…" : "Continue as guest"}
                   </button>
-                  <p className="mt-2 text-center text-[12px] text-black/45">No account needed · your chats stay in this browser</p>
+                  <p className="mt-2 text-center text-[12px] text-black/45">
+                    No account needed · small files only · chats deleted after 3 days
+                  </p>
                 </div>
 
                 {!unconfigured && (

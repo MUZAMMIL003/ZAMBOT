@@ -10,6 +10,21 @@ export type DocumentStatus =
 
 export type ChatStatus = "pending" | "processing" | "active" | "archived";
 
+/** What a plan allows. 0 means no limit. */
+export interface PlanLimits {
+  plan: "guest" | "member";
+  file_mb: number;
+  sheet_file_mb: number;
+  pages: number;
+  uploads_per_day: number;
+  questions_per_day: number;
+  calculations_per_day: number;
+  /** Scanned pages the AI page reader reads per file (0 = not for this plan). */
+  scanned_pages: number;
+  /** Days a chat is kept (0 = forever). */
+  keep_days: number;
+}
+
 export interface User {
   id: string;
   email: string;
@@ -17,6 +32,10 @@ export interface User {
   avatar_url?: string | null;
   auth_provider: string;
   created_at: string | null;
+  plan?: "guest" | "member";
+  limits?: PlanLimits;
+  /** Used so far today (UTC). */
+  usage?: { uploads: number; questions: number; calculations: number };
 }
 
 export interface AuthToken {
@@ -47,6 +66,9 @@ export interface Chat {
   created_at: string;
   updated_at: string;
   documents: ChatDocumentPreview[];
+  /** A guest chat, deleted at `expires_at`. */
+  guest?: boolean;
+  expires_at?: string | null;
 }
 
 /** One step of the extraction sandbox, shown live while a document is read. */
@@ -119,7 +141,8 @@ export interface DocumentRecord {
 export interface UploadResult {
   chat_id: string;
   documents: DocumentRecord[];
-  skipped: { filename: string; reason: string }[];
+  /** `limit` marks a plan limit (size, pages or today's uploads). */
+  skipped: { filename: string; reason: string; limit?: boolean }[];
 }
 
 export interface ChatDocumentsStatus {
@@ -210,7 +233,8 @@ export type StreamEvent =
       closest?: Source | null;
       latency_ms?: number;
     }
-  | { type: "error"; detail: string };
+  /** code "limit" = a plan limit was reached (e.g. a guest's calculations). */
+  | { type: "error"; detail: string; code?: string };
 
 export interface MemorySnapshot {
   chat_id: string;

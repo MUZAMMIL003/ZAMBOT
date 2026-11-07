@@ -42,6 +42,7 @@ const SECTIONS: { title: string; body: string[] }[] = [
     title: "Removing your data",
     body: [
       "Deleting a chat removes its files, text and messages. Settings → Delete all chats removes everything at once.",
+      "Guest chats and their files are deleted automatically 3 days after they were made, unless you sign in with Google first.",
       "To have your account removed as well, ask the person who runs this Zambot.",
     ],
   },

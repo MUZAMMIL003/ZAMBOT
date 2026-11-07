@@ -13,6 +13,7 @@ import { useNavigate } from "react-router-dom";
 
 import { Composer, type ComposerHandle } from "@/components/chat/Composer";
 import { FileDropZone } from "@/components/chat/FileDropZone";
+import { guestUploadHint, useGuestPlan } from "@/lib/plan";
 import { AnimatedLogo } from "@/components/ui/AnimatedLogo";
 import { FileTypeIcon, Icon } from "@/components/ui/Icon";
 import { MenuButton } from "@/components/ui/PageHeader";
@@ -47,6 +48,7 @@ export function Start() {
   const composer = useRef<ComposerHandle>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { limits, usage } = useGuestPlan();
 
   const start = useCallback(
     async (text: string, files: File[]) => {
@@ -112,6 +114,7 @@ export function Start() {
               attachDisabled={busy}
               onSubmit={(text, files) => void start(text, files)}
               placeholder="Add a file and ask…"
+              footnote={guestUploadHint(limits, usage)}
             />
             {error && (
               <p role="alert" className="mt-3 text-center text-[13px] text-danger">

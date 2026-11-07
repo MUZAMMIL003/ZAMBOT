@@ -36,6 +36,15 @@ client.
   (`zambot.guest`) and sent like any token when nobody is signed in with
   Supabase. Without Supabase keys the login page shows only the guest button.
   Settings shows "Leave guest mode" with a two-tap confirm.
+- **Guest limits**: `/me` returns `plan`, `limits` and today's `usage`
+  (`lib/plan.ts` reads them). `components/chat/GuestUpsell.tsx` shows the
+  sidebar card ("Guest mode · Limited" + Sign in with Google) and the limit
+  card above the composer, used instead of a red error when a guest hits a
+  limit (upload `skipped[].limit`, a 429, or a stream error with
+  `code: "limit"`). Files over the size limit are stopped before upload.
+  Settings lists the limits and today's use. On Google sign-in a leftover
+  guest pass is sent to `POST /auth/guest/claim`, which moves the guest
+  chats into the account.
 
 ---
 
