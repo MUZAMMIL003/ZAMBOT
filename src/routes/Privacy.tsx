@@ -8,7 +8,7 @@ import { Link } from "react-router-dom";
 import { AnimatedLogo } from "@/components/ui/AnimatedLogo";
 import { Icon } from "@/components/ui/Icon";
 
-const UPDATED = "25 October 2026";
+const UPDATED = "6 November 2026";
 
 const SECTIONS: { title: string; body: string[] }[] = [
   {
@@ -17,6 +17,7 @@ const SECTIONS: { title: string; body: string[] }[] = [
       "Your account: the email address, name and profile picture that Google or the email sign-in link provides.",
       "The files you upload, the text read from them, and the chats you have about them.",
       "Simple daily counters of how many questions and uploads you made, so the free service is shared fairly.",
+      "A record of each sign-in: the time, your email (or \"guest\"), your IP address and your browser. Only the person who runs this Zambot can see it.",
     ],
   },
   {
