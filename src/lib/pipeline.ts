@@ -190,7 +190,10 @@ export function describe(step: TraceStep): string {
         ? `Looked back over the last ${plural(n("recent_messages"), "message")}${f.has_summary ? " and the running summary" : ""}`
         : "A fresh conversation - nothing to recall";
     case "rewriting":
+      if (f.kind === "small_talk") return "Small talk - answered directly";
+      if (f.kind === "correction" && f.question) return `A correction - read it as “${String(f.question)}”`;
       if (f.changed && f.question) return `A follow-up - read it as “${String(f.question)}”`;
+      if (f.kind === "unresolved") return "Could not check against the chat - answered as written";
       if (f.follow_up === false) return "A new question - earlier messages set aside";
       return "The question was already clear on its own";
     case "sandbox":
@@ -215,6 +218,7 @@ export function describe(step: TraceStep): string {
       if (f.kind === "analysis") return `A judgement question - used the ${n("kept")} most useful of ${n("of")}`;
       return n("kept") ? `Kept the ${n("kept")} most relevant of ${n("of")}` : `None of the ${n("of")} passages actually answer it`;
     case "generating":
+      if (f.small_talk) return "A short reply - no documents needed";
       if (f.found === false) return "Nothing in your documents covers this";
       if (!("passages" in f)) return "";
       return `Wrote from ${f.whole_document ? "the whole document" : plural(n("passages"), "passage")}${n("citations") ? ` with ${plural(n("citations"), "citation")}` : ""}`;

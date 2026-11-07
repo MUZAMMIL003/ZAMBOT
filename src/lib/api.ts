@@ -225,6 +225,13 @@ const realApi = {
   health: () => request<{ status: string }>("/health"),
 };
 
+/** Today in the browser's time zone, as YYYY-MM-DD. */
+function localToday(): string {
+  const now = new Date();
+  const pad = (value: number) => String(value).padStart(2, "0");
+  return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+}
+
 // -------------------------------------------------------------- streaming
 /**
  * POST /chat/{id}/stream and yield decoded SSE events.
@@ -246,6 +253,8 @@ async function* realStreamAnswer(
       verify: true,
       document_ids: options.documentIds ?? null,
       regenerate: options.regenerate ?? false,
+      // The user's own calendar date, so "yesterday" means their yesterday.
+      today: localToday(),
     }),
     signal,
   });

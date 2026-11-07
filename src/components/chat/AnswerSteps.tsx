@@ -190,16 +190,28 @@ function StepDetails({ step, runs }: { step: TraceStep; runs?: SandboxRun[] | nu
               </div>
             )}
             <div className="rounded-xl bg-[rgb(var(--text))] px-3 py-2 text-white">
-              <p className="mb-1.5 text-[10.5px] font-medium uppercase tracking-[0.08em] text-white/55">It searched for</p>
+              <p className="mb-1.5 text-[10.5px] font-medium uppercase tracking-[0.08em] text-white/55">Understood as</p>
               <p className="text-[12.5px] leading-relaxed">{String(f.question ?? "")}</p>
             </div>
           </div>
+          {Boolean(f.user_facts) && (
+            <div className="rounded-xl bg-white px-3 py-2">
+              <Label>What you told it earlier</Label>
+              <p className="text-[12.5px] leading-relaxed">{String(f.user_facts)}</p>
+            </div>
+          )}
           <p className="text-[11.5px] text-muted">
-            {f.changed
-              ? "A follow-up, so it was rewritten into a question that stands on its own, using the conversation so far. Your own words were searched too."
-              : f.follow_up === false
-                ? "This starts a new topic, so it was searched as written and the earlier messages were left out of the answer."
-                : "Already clear on its own, so it was searched as written."}{" "}
+            {f.kind === "small_talk"
+              ? "Small talk, so it replied directly without searching your documents."
+              : f.kind === "correction"
+                ? "A correction, so your previous request was repeated with your change. Only this full question was given to the writer - not the old answers."
+                : f.changed
+                  ? "A follow-up, so it was rewritten into a question that stands on its own. Only this full question was given to the writer - not the old answers."
+                  : f.kind === "unresolved"
+                    ? "The chat could not be checked just now, so it was answered as written with the last exchange alongside."
+                    : f.follow_up === false
+                      ? "This starts a new topic, so it was searched as written and the earlier messages were left out of the answer."
+                      : "Already clear on its own, so it was searched as written."}{" "}
             <Model served={served} />
           </p>
         </div>
@@ -241,11 +253,6 @@ function StepDetails({ step, runs }: { step: TraceStep; runs?: SandboxRun[] | nu
             <span className="rounded-full bg-white px-2.5 py-1 ring-1 ring-black/[0.06]">
               By exact words <b className="font-mono">{Number(f.by_keyword ?? 0)}</b>
             </span>
-            {Number(f.recalled ?? 0) > 0 && (
-              <span className="rounded-full bg-white px-2.5 py-1 ring-1 ring-black/[0.06]">
-                Earlier answers <b className="font-mono">{Number(f.recalled)}</b>
-              </span>
-            )}
           </div>
           {words.length > 0 && (
             <div>

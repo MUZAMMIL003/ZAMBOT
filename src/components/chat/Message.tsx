@@ -597,10 +597,10 @@ function AnswerFooter({
       </div>
       {message.rewritten && (
         <span
-          title={`Searched for: ${message.rewritten}`}
+          title={`Understood as: ${message.rewritten}`}
           className="w-full truncate px-1 text-[11.5px] text-muted"
         >
-          Searched for: {message.rewritten}
+          Understood as: {message.rewritten}
         </span>
       )}
     </div>
