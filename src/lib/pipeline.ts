@@ -180,6 +180,16 @@ export const STEPS: Record<string, { done: string; doing: string; mode: PixelMod
   verifying: { done: "Checked it against the source", doing: "Checking it against the source", mode: "inspect" },
 };
 
+/** " · plan: read “Anna Lee”" - what the planner chose for a spreadsheet question, or nothing. */
+function describePlan(f: Record<string, unknown>): string {
+  const sheets = Array.isArray(f.sheets) ? (f.sheets as string[]) : [];
+  const named = sheets.length ? ` ${sheets.map((name) => `“${name}”`).join(", ")}` : "";
+  if (f.approach === "calculate") return ` · plan: calculate from${named || " the sheets"}`;
+  if (f.approach === "both") return ` · plan: calculate and read${named || " the sheets"}`;
+  if (f.approach === "read" && named) return ` · plan: read${named}`;
+  return "";
+}
+
 /** One human sentence for what a step found. */
 export function describe(step: TraceStep): string {
   const f = step.facts ?? {};
@@ -189,13 +199,15 @@ export function describe(step: TraceStep): string {
       return n("recent_messages") > 0
         ? `Looked back over the last ${plural(n("recent_messages"), "message")}${f.has_summary ? " and the running summary" : ""}`
         : "A fresh conversation - nothing to recall";
-    case "rewriting":
+    case "rewriting": {
       if (f.kind === "small_talk") return "Small talk - answered directly";
-      if (f.kind === "correction" && f.question) return `A correction - read it as “${String(f.question)}”`;
-      if (f.changed && f.question) return `A follow-up - read it as “${String(f.question)}”`;
+      const plan = describePlan(f);
+      if (f.kind === "correction" && f.question) return `A correction - read it as “${String(f.question)}”${plan}`;
+      if (f.changed && f.question) return `A follow-up - read it as “${String(f.question)}”${plan}`;
       if (f.kind === "unresolved") return "Could not check against the chat - answered as written";
-      if (f.follow_up === false) return "A new question - earlier messages set aside";
-      return "The question was already clear on its own";
+      if (f.follow_up === false) return plan ? `Understood as asked${plan}` : "A new question - earlier messages set aside";
+      return `The question was already clear on its own${plan}`;
+    }
     case "sandbox":
       return f.succeeded
         ? f.summary
@@ -208,9 +220,10 @@ export function describe(step: TraceStep): string {
       const parts = [];
       if (n("by_meaning")) parts.push(`${n("by_meaning")} by meaning`);
       if (n("by_keyword")) parts.push(`${n("by_keyword")} by exact words`);
+      const sheets = Array.isArray(f.sheets) ? (f.sheets as string[]) : [];
       return `${plural(n("candidates"), "passage")} matched in ${plural(n("documents"), "document")}${
         parts.length ? ` (${parts.join(", ")})` : ""
-      }`;
+      }${sheets.length ? ` · read ${sheets.map((name) => `“${name}”`).join(", ")}` : ""}`;
     }
     case "ranking":
       if (!("kept" in f)) return "";
